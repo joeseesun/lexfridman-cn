@@ -30,16 +30,18 @@ SITE = ROOT.parent / 'site'
 DOMAIN = 'https://lex.qiaomu.ai'
 TODAY = date.today().isoformat()
 
-CSS_V, APP_V, EP_V = 9, 8, 4
+CSS_V, APP_V, EP_V = 10, 9, 5
 
 THEME_SCRIPT = """<script>
 (function () {
-  var t = null;
-  try { t = localStorage.getItem('lex-theme'); } catch (e) {}
+  var d = document.documentElement, t = null, f = null, z = null;
+  try { t = localStorage.getItem('lex-theme'); f = localStorage.getItem('lex-font'); z = localStorage.getItem('lex-size'); } catch (e) {}
   if (t !== 'light' && t !== 'dark') {
     t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
   }
-  document.documentElement.setAttribute('data-theme', t);
+  d.setAttribute('data-theme', t);
+  if (f === 'serif') d.classList.add('font-serif');
+  if (z && /^(1[5-9]|2[01])$/.test(z)) d.style.setProperty('--read-size', z + 'px');
   var meta = document.querySelector('meta[name="theme-color"]');
   function syncMeta() { if (meta) meta.content = t === 'light' ? '#f7f7f8' : '#0d0d0f'; }
   syncMeta();
@@ -47,8 +49,10 @@ THEME_SCRIPT = """<script>
   window.__lexThemeToggle = function () {
     t = t === 'light' ? 'dark' : 'light';
     try { localStorage.setItem('lex-theme', t); } catch (e) {}
-    document.documentElement.setAttribute('data-theme', t);
+    d.classList.add('theme-anim');
+    d.setAttribute('data-theme', t);
     syncMeta();
+    setTimeout(function () { d.classList.remove('theme-anim'); }, 320);
   };
   document.addEventListener('click', function (e) {
     if (e.target.closest && e.target.closest('[data-theme-toggle]')) window.__lexThemeToggle();
@@ -56,8 +60,19 @@ THEME_SCRIPT = """<script>
 })();
 </script>"""
 
-THEME_BTN = ('<button class="theme-toggle" data-theme-toggle aria-label="切换浅色 / 深色模式" '
-             'title="切换浅色 / 深色模式"><span class="i-sun">☀</span><span class="i-moon">☾</span></button>')
+THEME_BTN = ('<button class="theme-toggle" type="button" data-theme-toggle aria-label="切换浅色 / 深色模式" title="切换浅色 / 深色模式">'
+             '<svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/>'
+             '<path d="M12 2.5v2M12 19.5v2M4.6 4.6l1.4 1.4M18 18l1.4 1.4M2.5 12h2M19.5 12h2M4.6 19.4L6 18M18 6l1.4-1.4"/></svg>'
+             '<svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7z"/></svg>'
+             '</button>')
+
+ICON_PLAY = '<svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.6-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>'
+ICON_PAUSE = '<svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4.2" height="14" rx="1.2"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.2"/></svg>'
+
+BRAND = ('<a class="brand" href="/" aria-label="Lex Fridman 播客全访谈 · 首页">'
+         '<span class="brand-mark" aria-hidden="true">L</span>'
+         '<span class="brand-text"><span class="brand-name">Lex Fridman 播客全访谈</span>'
+         '<span class="tagline">视频 · 音频 · 双语文稿 · 中文精读</span></span></a>')
 
 FEED_LINK = (f'<link rel="alternate" type="application/rss+xml" '
              f'title="Lex Fridman 播客全访谈 · 中文精读全文" href="{DOMAIN}/feed.xml">')
@@ -130,6 +145,8 @@ def build_data():
             'zh': trans.get(e['slug'], {}).get('zh'),
             'guest': trans.get(e['slug'], {}).get('guest'),
             'tr': tag, 'au': bool(audio_for(e)),
+            'r': 1 if e['slug'] in ZH and (SITE / 'zh' / f"{e['slug']}.html").exists() else 0,
+            'ds': trans.get(e['slug'], {}).get('desc'),
         })
     out = {'updated': TODAY, 'episodes': eps}
     (SITE / 'data' / 'episodes.json').write_text(json.dumps(out, ensure_ascii=False, separators=(',', ':')))
@@ -165,11 +182,8 @@ EP_SHELL = """<!DOCTYPE html>
 <a class="skip-link" href="#main">跳到主要内容</a>
 <header class="site-header">
   <div class="wrap header-inner">
-    <div class="brand">
-      <h1><a href="/">Lex Fridman 播客全访谈</a></h1>
-      <p class="tagline">视频 · 音频 · 双语文稿 · 中文精读</p>
-    </div>
-    <div class="header-actions"><a class="back-all" href="/">← 返回全部单集</a>{theme_btn}</div>
+    {brand}
+    <div class="header-actions"><a class="hdr-link" href="/#search">搜索全部 506 期</a>{theme_btn}</div>
   </div>
 </header>
 
@@ -181,8 +195,7 @@ EP_SHELL = """<!DOCTYPE html>
     <div class="ep-meta">
       {ep_no}<span>{date_disp}</span>{guest_span}{badges}
     </div>
-    {audio_html}
-    {video_html}
+    {media_html}
     <section class="content-tabs">
       {tab_buttons}
       {panel_zh}
@@ -190,10 +203,11 @@ EP_SHELL = """<!DOCTYPE html>
       {no_tr_note}
     </section>
     {resources}
-    <nav class="ep-prevnext">
+    <nav class="ep-prevnext" aria-label="上一期 / 下一期">
       {prevnext}
     </nav>
   </article>
+  <aside class="ep-toc" aria-label="精读目录" hidden></aside>
 </main>
 
 <footer class="site-footer">
@@ -279,35 +293,35 @@ def build_page(i, eps):
     if audio:
         audio_html = (f'<div class="audio-player" data-slug="{H.escape(slug)}" data-title="{H.escape(zh_title or title)}">'
                       f'<audio src="{H.escape(audio)}" preload="none"></audio>'
-                      f'<button class="ap-play" aria-label="播放">▶</button>'
+                      f'<button class="ap-play" type="button" aria-label="播放">{ICON_PLAY}{ICON_PAUSE}</button>'
                       f'<div class="ap-mid">'
                       f'<div class="ap-line1"><span class="ap-label">官方音频</span>'
                       f'<span class="ap-time"><span class="ap-cur">00:00</span> / <span class="ap-dur">--:--</span></span></div>'
                       f'<div class="ap-bar" role="slider" aria-label="播放进度" tabindex="0">'
                       f'<div class="ap-buf"></div><div class="ap-fill"></div></div>'
                       f'<div class="ap-line2">'
-                      f'<button class="ap-skip" data-s="-15">−15s</button>'
-                      f'<button class="ap-skip" data-s="15">+15s</button>'
-                      f'<button class="ap-rate">1×</button>'
-                      f'<span class="ap-resume" hidden>已从上次位置继续 · <button class="ap-restart">从头听</button></span>'
+                      f'<button type="button" class="ap-skip" data-s="-15" aria-label="后退 15 秒">−15s</button>'
+                      f'<button type="button" class="ap-skip" data-s="15" aria-label="前进 15 秒">+15s</button>'
+                      f'<button type="button" class="ap-rate" aria-label="播放速度">1×</button>'
+                      f'<span class="ap-resume" hidden>已从上次位置继续 · <button type="button" class="ap-restart">从头听</button></span>'
                       f'</div></div></div>')
 
     video_html = ''
     if y:
-        img = f'https://i.ytimg.com/vi/{y}/hqdefault.jpg'
-        video_html = (f'<div class="video-facade" data-yt="{H.escape(y)}" tabindex="0" role="button" aria-label="播放视频">'
-                      f'<img loading="lazy" src="{img}" alt="{H.escape(zh_title or title)}">'
-                      f'<span class="vf-play">▶ 播放视频</span></div>')
-    elif audio:
-        video_html = '<div class="ep-notice">该期暂无视频，可直接收听上方官方音频。</div>'
+        img = f'https://i.ytimg.com/vi/{y}/mqdefault.jpg'
+        video_html = (f'<button type="button" class="video-facade" data-yt="{H.escape(y)}" aria-label="播放 YouTube 视频">'
+                      f'<img src="{img}" alt="" width="320" height="180">'
+                      f'<span class="vf-play">{ICON_PLAY}<span>看视频</span></span></button>')
+    if audio or y:
+        media_html = f'<div class="media{" has-audio" if audio else ""}">{video_html}{audio_html}</div>'
     else:
-        video_html = '<div class="ep-notice">该期暂无音视频存档，可通过下方资源访问原始页面。</div>'
+        media_html = '<div class="ep-notice">该期暂无音视频存档，可通过下方资源访问原始页面。</div>'
 
     tab_buttons = ['<div class="tabs" role="tablist">']
     if has_zh:
-        tab_buttons.append('<button class="tab-btn" data-tab="zh" role="tab">中文精读</button>')
+        tab_buttons.append('<button class="tab-btn" type="button" data-tab="zh" role="tab" aria-controls="panel-zh">中文精读</button>')
     if tr_tag:
-        tab_buttons.append('<button class="tab-btn" data-tab="tr" role="tab">英文文稿</button>')
+        tab_buttons.append('<button class="tab-btn" type="button" data-tab="tr" role="tab" aria-controls="panel-tr">英文文稿</button>')
     tab_buttons.append('</div>')
     tab_buttons = ''.join(tab_buttons) if (has_zh or tr_tag) else ''
 
@@ -363,8 +377,8 @@ def build_page(i, eps):
         t = ne['zh'] or ne['t']
         m = re.match(r'^#(\d+)\s*[–—-]?\s*(.*)$', t)
         txt = f'#{ne["n"]} {m.group(2)}' if (ne['n'] and m) else t
-        short = (txt[:26] + '…') if len(txt) > 27 else txt
-        return f'<a href="/ep/{ne["s"]}/">{label} {H.escape(short)}</a>'
+        return (f'<a href="/ep/{ne["s"]}/" rel="{"prev" if label.startswith("←") else "next"}">'
+                f'<span class="pn-k">{label}</span><span class="pn-t">{H.escape(txt)}</span></a>')
 
     prevnext = f'{pn_link(prev_e, "← 上一期")}{pn_link(next_e, "下一期 →")}'
 
@@ -377,7 +391,7 @@ def build_page(i, eps):
         feed_link=FEED_LINK, footer_feed=FOOTER_FEED,
         crumb=crumb, h1=h1, orig_line=orig_line, ep_no=ep_no, date_disp=date_disp,
         guest_span=guest_span, badges=badges_html(tr_tag, has_zh),
-        audio_html=audio_html, video_html=video_html, tab_buttons=tab_buttons,
+        media_html=media_html, tab_buttons=tab_buttons, brand=BRAND,
         panel_zh=panel_zh, panel_tr=panel_tr, no_tr_note=no_tr_note,
         resources=resources, prevnext=prevnext, lex=H.escape(lex),
     )
@@ -458,11 +472,8 @@ def build_disclaimer():
 <a class="skip-link" href="#main">跳到主要内容</a>
 <header class="site-header">
   <div class="wrap header-inner">
-    <div class="brand">
-      <h1><a href="/">Lex Fridman 播客全访谈</a></h1>
-      <p class="tagline">视频 · 音频 · 双语文稿 · 中文精读</p>
-    </div>
-    <div class="header-actions"><a class="back-all" href="/">← 返回全部单集</a>{THEME_BTN}</div>
+    {BRAND}
+    <div class="header-actions"><a class="hdr-link" href="/#search">搜索全部 506 期</a>{THEME_BTN}</div>
   </div>
 </header>
 
