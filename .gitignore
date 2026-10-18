@@ -1,0 +1,31 @@
+# ---- 受版权保护的内容,不入库(构建时由管线自行获取/生成) ----
+# tools/official/ = lexfridman.com 官方文稿
+tools/official/
+# site/transcripts/ = Kaggle 存档与 ASR 文稿
+site/transcripts/
+# site/zh/ = AI 生成的中文精读全文
+site/zh/
+
+# ---- 构建产物(build.py 全量重建) ----
+site/ep/
+site/data/
+site/disclaimer/
+site/sitemap.xml
+site/llms.txt
+site/feed.xml
+
+# ---- 运行时状态 ----
+tools/audio_sizes.json
+zh_model_stats.json
+
+# ---- 本地工作区/杂项 ----
+work/
+*.tsv
+lex-音频直链.html
+lex-transcripts-全清单.md
+
+# ---- 系统杂项 ----
+.DS_Store
+__pycache__/
+*.pyc
+.zcode/

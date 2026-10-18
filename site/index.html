@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="dark light">
+<meta name="theme-color" content="#0d0d0f">
+<title>Lex Fridman 播客全访谈 · 506 期视频 / 音频 / 双语文稿 / 中文精读</title>
+<meta name="description" content="Lex Fridman 播客 506 期全收录：每期独立页面附官方音频、YouTube 视频、英文文稿（官方 Transcript / 存档 / 机器转写）以及 AI 生成的中文精读文章。">
+<meta property="og:title" content="Lex Fridman 播客全访谈">
+<meta property="og:description" content="506 期访谈全收录：官方音频、视频、英文文稿、中文精读。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://lex.qiaomu.ai/">
+<meta property="og:site_name" content="Lex Fridman 播客全访谈">
+<link rel="alternate" type="application/rss+xml" title="Lex Fridman 播客全访谈 · 中文精读全文" href="https://lex.qiaomu.ai/feed.xml">
+<link rel="alternate" type="application/rss+xml" title="Lex Fridman Podcast 官方 RSS" href="https://lexfridman.com/feed/podcast/">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%23000'/%3E%3Ccircle cx='50' cy='50' r='46' fill='none' stroke='%23fff' stroke-width='4'/%3E%3Ctext x='50' y='66' font-size='48' text-anchor='middle' fill='%23fff' font-family='Georgia'%3EL%3C/text%3E%3C/svg%3E">
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"WebSite","name":"Lex Fridman 播客全访谈","url":"https://lex.qiaomu.ai/","description":"Lex Fridman 播客 506 期中文导航：官方音频、视频、英文文稿与中文精读","inLanguage":"zh-CN"}
+</script>
+<script>
+(function () {
+  var t = null;
+  try { t = localStorage.getItem('lex-theme'); } catch (e) {}
+  if (t !== 'light' && t !== 'dark') {
+    t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
+  }
+  document.documentElement.setAttribute('data-theme', t);
+  var meta = document.querySelector('meta[name="theme-color"]');
+  function syncMeta() { if (meta) meta.content = t === 'light' ? '#f7f7f8' : '#0d0d0f'; }
+  syncMeta();
+  window.__lexTheme = t;
+  window.__lexThemeToggle = function () {
+    t = t === 'light' ? 'dark' : 'light';
+    try { localStorage.setItem('lex-theme', t); } catch (e) {}
+    document.documentElement.setAttribute('data-theme', t);
+    syncMeta();
+  };
+  document.addEventListener('click', function (e) {
+    if (e.target.closest && e.target.closest('[data-theme-toggle]')) window.__lexThemeToggle();
+  });
+})();
+</script>
+<link rel="stylesheet" href="style.css?v=9">
+</head>
+<body>
+<a class="skip-link" href="#main">跳到主要内容</a>
+<header class="site-header">
+  <div class="wrap header-inner">
+    <div class="brand">
+      <h1><a href="/">Lex Fridman 播客全访谈</a></h1>
+      <p class="tagline">视频 · 音频 · 双语文稿 · 中文精读</p>
+    </div>
+    <div class="header-actions">
+      <div class="header-stats" id="stats"></div>
+      <button class="theme-toggle" data-theme-toggle aria-label="切换浅色 / 深色模式" title="切换浅色 / 深色模式"><span class="i-sun">☀</span><span class="i-moon">☾</span></button>
+    </div>
+  </div>
+</header>
+
+<div class="toolbar">
+  <div class="wrap toolbar-inner">
+    <input id="search" type="search" placeholder="搜索嘉宾、标题、期数…（支持中英文）" autocomplete="off">
+    <div class="filters" id="filters">
+      <button data-f="all" class="on">全部</button>
+      <button data-f="zh">中文精读</button>
+      <button data-f="tr">有文稿</button>
+    </div>
+  </div>
+</div>
+
+<main class="wrap" id="main">
+  <div id="grid" class="grid"></div>
+  <div id="sentinel" class="sentinel"></div>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap footer-inner">
+    <div class="footer-note">
+      <p>非官方粉丝站点。内容版权归 Lex Fridman 及相应嘉宾所有。文稿来源：官方 Transcript、公开 Kaggle 数据集存档、机器转写；中文精读由 AI 改写生成，仅供学习参考，建议收听<a href="https://lexfridman.com/podcast/" target="_blank" rel="noopener">原始访谈</a>。</p>
+      <p class="footer-feed">订阅本站更新：<a href="/feed.xml">RSS 全文订阅</a>（中文精读全文 + 官方音频） <button class="copy-feed" type="button" data-copy-feed>复制地址</button></p>
+      <p class="footer-links">
+        <a href="https://tuijian.qiaomu.ai/" target="_blank" rel="noopener">乔木推荐</a>
+        <a href="https://github.com/joeseesun/" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://x.com/vista8" target="_blank" rel="noopener">X</a>
+      </p>
+    </div>
+    <div class="footer-icons">
+      <button id="rewardBtn" class="icon-btn" aria-label="打赏支持" title="打赏支持">☕</button>
+      <button id="followBtn" class="icon-btn" aria-label="关注向阳乔木" title="关注向阳乔木">微信</button>
+    </div>
+  </div>
+</footer>
+
+<div id="rewardModal" class="modal" hidden>
+  <div class="modal-card">
+    <button class="modal-close" aria-label="关闭">×</button>
+    <h3>打赏支持</h3>
+    <img src="assets/qiaomu_reward_qr.png" alt="打赏二维码">
+  </div>
+</div>
+<div id="followModal" class="modal" hidden>
+  <div class="modal-card">
+    <button class="modal-close" aria-label="关闭">×</button>
+    <h3>关注向阳乔木</h3>
+    <p class="modal-sub">微信公众号：向阳乔木推荐看</p>
+    <img src="assets/qiaomu_wechat_public_account_qr.jpg" alt="公众号二维码">
+    <p class="modal-links"><a href="https://github.com/joeseesun/" target="_blank" rel="noopener">GitHub</a> · <a href="https://x.com/vista8" target="_blank" rel="noopener">X</a></p>
+  </div>
+</div>
+
+<script defer src="https://umami.qiaomu.ai/script.js" data-website-id="572fd127-0eb0-4566-8ed6-df70b531ab01" data-domains="lex.qiaomu.ai"></script>
+<script src="app.js?v=8"></script>
+</body>
+</html>
