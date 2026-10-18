@@ -1,3 +1,24 @@
+# 欢迎搜索引擎与 AI 检索 / 问答引擎抓取。中文精读另有 Markdown 版本：/ep/{slug}/index.md
 User-agent: *
 Allow: /
+
+User-agent: GPTBot
+Allow: /
+User-agent: OAI-SearchBot
+Allow: /
+User-agent: ChatGPT-User
+Allow: /
+User-agent: ClaudeBot
+Allow: /
+User-agent: Claude-SearchBot
+Allow: /
+User-agent: PerplexityBot
+Allow: /
+User-agent: Google-Extended
+Allow: /
+User-agent: Applebot-Extended
+Allow: /
+User-agent: Bytespider
+Allow: /
+
 Sitemap: https://lex.qiaomu.ai/sitemap.xml

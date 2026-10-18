@@ -26,22 +26,6 @@
   }
   const histGet = () => { try { return (JSON.parse(ls.get('lex-hist') || '{}') || {})[slug] || {}; } catch (e) { return {}; } };
 
-  /* ---------- 复制 RSS 订阅地址（页脚） ---------- */
-  document.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-copy-feed]');
-    if (!b) return;
-    const url = location.origin + '/feed.xml';
-    const copied = () => {
-      b.textContent = '已复制';
-      setTimeout(() => { b.textContent = '复制地址'; }, 1600);
-    };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(url).then(copied).catch(() => { location.href = '/feed.xml'; });
-    } else {
-      location.href = '/feed.xml';
-    }
-  });
-
   /* ---------- 返回顶部 ---------- */
   const toTop = document.createElement('button');
   toTop.id = 'toTop';
@@ -68,11 +52,50 @@
     syncTools();
   }
 
+  /* ---------- 正文细节：首字下沉 / 摘句署名与悬挂引号 / 西文 em / 文末终止符 ---------- */
+  if (article) {
+    const CJK = /[㐀-鿿]/;
+    const firstP = $(':scope > p', article);
+    if (firstP && CJK.test(firstP.textContent.trim().charAt(0))) firstP.classList.add('dropcap');
+    $$('blockquote', article).forEach((q) => {
+      const tail = q.lastChild && q.lastChild.nodeType === 3 ? q.lastChild : null;
+      const m = tail && tail.nodeValue.match(/^([\s\S]*?)[（(]([^（）()]{1,40})[）)]\s*$/);
+      if (m) {
+        tail.nodeValue = m[1].replace(/\s+$/, '');
+        const c = document.createElement('cite');
+        c.textContent = m[2];
+        q.appendChild(c);
+      }
+      if (/^[「“『‘"]/.test(q.textContent.trim())) q.classList.add('hang');
+    });
+    $$('em', article).forEach((em) => { if (!CJK.test(em.textContent)) em.classList.add('latin'); });
+    let last = article.lastElementChild;
+    while (last && (last.tagName === 'UL' || last.tagName === 'OL')) last = last.lastElementChild;
+    if (last && /^(P|LI|BLOCKQUOTE)$/.test(last.tagName)) last.classList.add('end-mark');
+  }
+
   /* ---------- 阅读工具（tabs 右端，与正文右边缘对齐）：目录 + 阅读设置 Aa ---------- */
   let tools, tocBtn, aaBtn, aaPop, tocPop, progress, aside;
   const heads = article ? $$('h2', article) : [];
-  const SIZES = [15, 16, 17, 18, 19, 20, 21];
-  let size = parseInt(getComputedStyle(html).getPropertyValue('--read-size'), 10) || 17;
+  const css = (k) => getComputedStyle(html).getPropertyValue(k).trim();
+  const SIZE = { min: 15, max: 22, def: 18 };
+  const LH = [['1.75', '紧凑'], ['2', '适中'], ['2.25', '宽松']];
+  const MEASURE = [['600', '窄'], ['680', '标准'], ['760', '宽']];
+  const FONTS = [
+    ['sys', '系统默认', '苹方 / 雅黑', ''],
+    ['sans', '思源黑体', 'Noto Sans SC', '"Noto Sans SC"'],
+    ['serif', '思源宋体', 'Noto Serif SC', '"Noto Serif SC"'],
+    ['kai', '霞鹜文楷', 'LXGW WenKai', '"LXGW WenKai Screen"'],
+    ['wei', '站酷小薇', 'ZCOOL XiaoWei', '"ZCOOL XiaoWei"'],
+  ];
+  const THEMES = [['light', '浅色', '#ffffff', '#111111'], ['sepia', '护眼', '#f5eddc', '#2f2618'], ['dark', '深色', '#141414', '#ebebe8']];
+  const st = {
+    size: parseInt(css('--read-size'), 10) || SIZE.def,
+    lh: css('--read-lh') || '2',
+    measure: String(parseInt(css('--measure'), 10) || 680),
+    font: html.getAttribute('data-font') || 'sys',
+    indent: html.classList.contains('indent'),
+  };
 
   if (tabsRow && article) {
     tools = document.createElement('div');
@@ -80,7 +103,7 @@
     tools.innerHTML =
       (heads.length > 2 ? `<button type="button" class="tool-btn" data-tool="toc" aria-expanded="false" aria-haspopup="true" title="目录">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h11M4 18h14"/></svg><span class="lbl">目录</span></button>` : '') +
-      `<button type="button" class="tool-btn" data-tool="aa" aria-expanded="false" aria-haspopup="true" title="阅读设置：字体与字号">
+      `<button type="button" class="tool-btn" data-tool="aa" aria-expanded="false" aria-haspopup="true" title="阅读设置">
         <span class="aa">A<small>a</small></span><span class="lbl">阅读设置</span></button>`;
     tabsRow.appendChild(tools);
     tocBtn = $('[data-tool="toc"]', tools);
@@ -91,48 +114,82 @@
     aaPop.hidden = true;
     aaPop.setAttribute('role', 'dialog');
     aaPop.setAttribute('aria-label', '阅读设置');
-    aaPop.innerHTML = `<div class="pop-row"><div class="pop-k">正文字体</div>
-        <div class="seg" data-seg="font"><button type="button" data-v="sans">黑体</button><button type="button" class="serif" data-v="serif">宋体</button></div></div>
-      <div class="pop-row"><div class="pop-k">字号</div>
-        <div class="seg" data-seg="size"><button type="button" data-v="-1" aria-label="缩小字号">A−</button><span class="sz" role="status"></span><button type="button" data-v="1" aria-label="放大字号">A+</button></div></div>`;
+    aaPop.innerHTML = `
+      <div class="pop-row"><div class="pop-k">背景</div><div class="swatches" data-k="theme">${THEMES.map(([v, n, bg, fg]) =>
+        `<button type="button" data-v="${v}"><i style="background:${bg};color:${fg}">文</i>${n}</button>`).join('')}</div></div>
+      <div class="pop-row"><div class="pop-k">字体</div><div class="font-list" data-k="font">${FONTS.map(([v, n, en, fam]) =>
+        `<button type="button" data-v="${v}"><span${fam ? ` style='font-family:${fam},serif'` : ''}>${n}</span><small>${en}</small></button>`).join('')}</div></div>
+      <div class="pop-row"><div class="pop-k">字号 <b class="sz-v"></b></div>
+        <div class="seg" data-k="size"><button type="button" data-v="-1" aria-label="缩小字号">A−</button><span class="sz" aria-hidden="true">${'文'}</span><button type="button" data-v="1" aria-label="放大字号">A+</button></div></div>
+      <div class="pop-row"><div class="pop-k">行距</div><div class="seg" data-k="lh">${LH.map(([v, n]) => `<button type="button" data-v="${v}">${n}</button>`).join('')}</div></div>
+      <div class="pop-row"><div class="pop-k">版心宽度</div><div class="seg" data-k="measure">${MEASURE.map(([v, n]) => `<button type="button" data-v="${v}">${n}</button>`).join('')}</div></div>
+      <div class="pop-row"><div class="pop-k">段落</div><div class="seg" data-k="indent"><button type="button" data-v="0">段间空行</button><button type="button" data-v="1">首行缩进</button></div></div>
+      <div class="pop-foot"><span>设置会保存在本机</span><button type="button" data-reset>恢复默认</button></div>`;
     tabsRow.appendChild(aaPop);
+    // 宽屏下版心宽度由网格决定；窄屏隐藏这一项
+    if (window.matchMedia('(max-width: 760px)').matches) $('[data-k="measure"]', aaPop).closest('.pop-row').hidden = true;
 
     progress = document.createElement('div');
     progress.className = 'read-progress';
     tabsRow.appendChild(progress);
 
+    const press = (k, v) => $$(`[data-k="${k}"] button[data-v]`, aaPop).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === String(v))));
     const syncAa = () => {
-      const serif = html.classList.contains('font-serif');
-      $$('[data-seg="font"] button', aaPop).forEach((b) => b.setAttribute('aria-pressed', (b.dataset.v === 'serif') === serif));
-      $('.sz', aaPop).textContent = size + ' px';
-      const [dn, up] = $$('[data-seg="size"] button', aaPop);
-      dn.disabled = size <= SIZES[0];
-      up.disabled = size >= SIZES[SIZES.length - 1];
+      press('theme', html.getAttribute('data-theme'));
+      press('font', st.font);
+      press('lh', st.lh);
+      press('measure', st.measure);
+      press('indent', st.indent ? '1' : '0');
+      $('.sz-v', aaPop).textContent = st.size + ' px';
+      const sz = $('.sz', aaPop);
+      sz.style.fontSize = Math.round(st.size * 0.9) + 'px';
+      const [dn, up] = $$('[data-k="size"] button', aaPop);
+      dn.disabled = st.size <= SIZE.min;
+      up.disabled = st.size >= SIZE.max;
+    };
+    const apply = () => {
+      html.style.setProperty('--read-size', st.size + 'px');
+      html.style.setProperty('--read-lh', st.lh);
+      html.style.setProperty('--measure', st.measure + 'px');
+      html.classList.toggle('indent', st.indent);
+      if (st.font === 'sys') html.removeAttribute('data-font');
+      else { html.setAttribute('data-font', st.font); if (window.__lexLoadFont) window.__lexLoadFont(st.font); }
+      ls.set('lex-size', String(st.size));
+      ls.set('lex-lh', st.lh);
+      ls.set('lex-measure', st.measure);
+      ls.set('lex-indent', st.indent ? '1' : '0');
+      ls.set('lex-font', st.font);
     };
     syncAa();
+    document.addEventListener('lex-theme', syncAa);
     aaPop.addEventListener('click', (e) => {
       const b = e.target.closest('button');
       if (!b) return;
-      const seg = b.parentNode.dataset.seg;
-      // 调整前记住视口内的锚点段落，避免字号变化后阅读位置跳走
+      // 调整前记住视口内的锚点段落，避免排版变化后阅读位置跳走
       const stuck = tabsRow.getBoundingClientRect().top <= 1;
       const anchor = stuck && heads.concat($$('p', article)).find((el) => el.getBoundingClientRect().top > 60);
       const before = anchor ? anchor.getBoundingClientRect().top : 0;
-      if (seg === 'font') {
-        const serif = b.dataset.v === 'serif';
-        html.classList.toggle('font-serif', serif);
-        ls.set('lex-font', serif ? 'serif' : 'sans');
-        if (window.umami) window.umami.track('font-toggle', { font: b.dataset.v });
-      } else if (seg === 'size') {
-        size = Math.min(SIZES[SIZES.length - 1], Math.max(SIZES[0], size + Number(b.dataset.v)));
-        html.style.setProperty('--read-size', size + 'px');
-        ls.set('lex-size', String(size));
+      if (b.hasAttribute('data-reset')) {
+        Object.assign(st, { size: SIZE.def, lh: '2', measure: '680', font: 'serif', indent: false });
+      } else {
+        const k = b.parentNode.dataset.k;
+        const v = b.dataset.v;
+        if (k === 'theme') { if (window.__lexSetTheme) window.__lexSetTheme(v); }
+        else if (k === 'font') st.font = v;
+        else if (k === 'size') st.size = Math.min(SIZE.max, Math.max(SIZE.min, st.size + Number(v)));
+        else if (k === 'lh') st.lh = v;
+        else if (k === 'measure') st.measure = v;
+        else if (k === 'indent') st.indent = v === '1';
+        if (window.umami && k) window.umami.track('reading-setting', { k, v });
       }
+      apply();
       if (anchor) window.scrollBy(0, anchor.getBoundingClientRect().top - before);
       syncAa();
     });
 
-    /* 目录：宽屏放右侧固定侧栏，窄屏为弹出层 */
+    /* 目录：宽屏是与正文一起居中的侧栏，窄屏为弹出层 */
+    const main = $('.ep-main');
+    aside = $('.ep-toc');
     if (heads.length > 2) {
       heads.forEach((h, i) => { if (!h.id) h.id = 's' + (i + 1); });
       const listHTML = '<ol class="toc-list">' + heads.map((h) => `<li><a href="#${h.id}">${esc(h.textContent)}</a></li>`).join('') + '</ol>';
@@ -143,7 +200,6 @@
       tocPop.setAttribute('aria-label', '目录');
       tocPop.innerHTML = listHTML;
       tabsRow.appendChild(tocPop);
-      aside = $('.ep-toc');
       if (aside) aside.innerHTML = '<div class="toc-h">目录</div>' + listHTML;
       document.addEventListener('click', (e) => {
         const a = e.target.closest('.toc-list a');
@@ -156,6 +212,9 @@
         }
         closePops();
       });
+    } else {
+      if (main) main.classList.remove('has-toc');
+      aside = null;
     }
 
     const pops = [[aaBtn, aaPop], [tocBtn, tocPop]].filter((x) => x[0] && x[1]);
@@ -168,23 +227,19 @@
       closePops(p);
       p.hidden = !open;
       b.setAttribute('aria-expanded', String(open));
+      if (open && p === aaPop) FONTS.forEach(([k]) => window.__lexLoadFont && window.__lexLoadFont(k)); // 预览字体名
       if (open && p === tocPop) { const on = $('a.on', p); if (on) on.scrollIntoView({ block: 'nearest' }); }
     }));
     document.addEventListener('click', (e) => { if (!e.target.closest('.pop')) closePops(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePops(); });
   }
 
-  const wide = window.matchMedia('(min-width: 1320px)');
   function syncTools() {
     const zhOn = current === 'zh';
     if (tools) tools.style.visibility = zhOn ? '' : 'hidden';
     if (progress) progress.style.display = zhOn ? '' : 'none';
-    if (aside) {
-      aside.hidden = !zhOn;
-      document.body.classList.toggle('has-side-toc', zhOn && wide.matches);
-    }
+    if (aside) aside.classList.toggle('is-off', !zhOn); // 保留占位，切 tab 时版面不跳
   }
-  if (wide.addEventListener) wide.addEventListener('change', syncTools);
 
   if (tabBtns.length) {
     tabBtns.forEach((b) => b.addEventListener('click', () => {

@@ -134,7 +134,7 @@
     const thumb = e.y
       ? `<img loading="lazy" decoding="async" src="https://i.ytimg.com/vi/${e.y}/mqdefault.jpg" alt="" width="320" height="180">`
       : '<div class="no-img">LEX</div>';
-    const num = e.n != null ? `No.${e.n}` : '特辑';
+    const num = e.n != null ? `第 ${e.n} 期` : '特别节目';
     const date = e.d ? e.d.slice(0, 7).replace('-', '.') : '';
     const p = progressOf(e);
     const prog = p > 0.01 ? `<span class="prog" aria-hidden="true"><i style="width:${(p * 100).toFixed(1)}%"></i></span>` : '';
@@ -143,7 +143,7 @@
     return `<a class="card" href="/ep/${e.s}/">
       <div class="thumb">${thumb}${prog}</div>
       <div class="card-body">
-        <div class="card-kicker"><span class="ep-n">${num}</span><span>${date}</span>${e.r ? '<span class="zh-tag">精读</span>' : ''}</div>
+        <div class="card-kicker"><span class="ep-n">${num}</span><span>${date}</span>${e.r ? '<span class="zh-tag">中文精读</span>' : ''}</div>
         <div class="card-title">${hl(e._zh, toks)}</div>
         ${en}${desc}
       </div>
@@ -154,6 +154,7 @@
   function resetRender() {
     curToks = compute();
     rendered = 0;
+    AUTO = 90;
     grid.innerHTML = '';
     syncURL();
     renderHero();
@@ -173,7 +174,10 @@
       grid.insertAdjacentHTML('beforeend', slice.map((e) => cardHTML(e, curToks)).join(''));
       rendered += slice.length;
     }
-    $('#sentinel').textContent = rendered >= LIST.length ? (LIST.length > 6 ? '— 已经到底了 —' : '') : '加载中…';
+    const sen = $('#sentinel');
+    if (rendered >= LIST.length) sen.innerHTML = LIST.length > 6 ? '<span class="end">— 全部 ' + LIST.length + ' 期 —</span>' : '';
+    else if (rendered >= AUTO) sen.innerHTML = `<button type="button" class="more-btn" data-more>再看 30 期</button><span class="more-sub">已显示 ${rendered} / ${LIST.length} 期 · <a href="/archive/">按年份浏览全部</a></span>`;
+    else sen.textContent = '加载中…';
   }
 
   function renderResultLine() {
@@ -203,6 +207,21 @@
     if (e.target.closest('[data-reset]')) { setFilter('all'); resetRender(); }
   });
 
+  /* ---------- 报头：今日日期 + 收录概况 ---------- */
+  function renderMast() {
+    const md = $('#mastDate');
+    if (md) {
+      const t = new Date();
+      md.textContent = `${t.getFullYear()} 年 ${t.getMonth() + 1} 月 ${t.getDate()} 日 · 星期${'日一二三四五六'[t.getDay()]}`;
+    }
+    const ms = $('#mastSub');
+    if (ms) {
+      const nZh = DATA.filter((x) => x.r).length;
+      const since = DATA.map((x) => x.d).filter(Boolean).sort()[0];
+      ms.textContent = `${DATA.length} 期深度访谈 · ${nZh} 篇中文精读${since ? ` · ${since.slice(0, 4)} 年至今` : ''}`;
+    }
+  }
+
   /* ---------- 头条：最新一篇中文精读 ---------- */
   function renderHero() {
     const box = $('#hero');
@@ -211,29 +230,20 @@
     if (!e || state.q.trim() || state.f !== 'all') { box.hidden = true; return; }
     if (box.dataset.s === e.s) { box.hidden = false; return; }
     box.dataset.s = e.s;
-    const nZh = DATA.filter((x) => x.r).length;
-    const years = DATA.map((x) => x.d).filter(Boolean).sort();
-    const since = years.length ? years[0].slice(0, 4) : '';
     const d = e.d ? `${e.d.slice(0, 4)} 年 ${+e.d.slice(5, 7)} 月` : '';
     const img = e.y
       ? `<img src="https://i.ytimg.com/vi/${e.y}/maxresdefault.jpg" alt="" onerror="this.onerror=null;this.src='https://i.ytimg.com/vi/${e.y}/hqdefault.jpg'">`
       : '';
-    box.innerHTML = `<div class="hero-text">
-        <div class="hero-eyebrow"><span class="seal">最新精读</span><span>第 ${e.n != null ? e.n : '—'} 期 · ${d}</span></div>
+    const by = [e.guest, d, e.n != null ? `第 ${e.n} 期` : ''].filter(Boolean).map(esc).join(' · ');
+    box.innerHTML = `<a class="hero-media" href="/ep/${e.s}/" tabindex="-1" aria-hidden="true">${img}</a>
+      <div class="hero-text">
+        <div class="hero-kicker">最新精读</div>
         <h2 class="hero-title"><a href="/ep/${e.s}/">${esc(e._zh)}</a></h2>
         <p class="hero-en">${esc(e._en)}</p>
         ${e.ds ? `<p class="hero-desc">${esc(e.ds)}</p>` : ''}
-        <div class="hero-actions">
-          <a class="btn-ink" href="/ep/${e.s}/">阅读全文<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
-          ${e.au ? '<span class="hero-meta">附官方音频 · 视频 · 英文文稿</span>' : ''}
-        </div>
-        <div class="hero-stats">
-          <div><b>${DATA.length}</b><span>期访谈</span></div>
-          <div><b>${nZh}</b><span>篇中文精读</span></div>
-          ${since ? `<div><b>${since}</b><span>年至今</span></div>` : ''}
-        </div>
-      </div>
-      <a class="hero-media" href="/ep/${e.s}/" tabindex="-1" aria-hidden="true">${img}</a>`;
+        <p class="hero-by">${by}</p>
+        <a class="hero-cta" href="/ep/${e.s}/">阅读全文<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+      </div>`;
     box.hidden = false;
   }
 
@@ -335,6 +345,7 @@
     DATA.forEach((e, i) => { e._i = i; indexEntry(e); });
     loadHist();
     updateCounts();
+    renderMast();
     $('#contClear').addEventListener('click', clearHist);
 
     let deb;
@@ -373,10 +384,7 @@
         input.focus();
         input.select();
       }
-      if (ev.key === 'Escape') { $('#rewardModal').hidden = true; $('#followModal').hidden = true; }
     });
-    bindModal('#rewardBtn', '#rewardModal');
-    bindModal('#followBtn', '#followModal');
 
     resetRender();
     io.observe($('#sentinel'));
@@ -386,34 +394,16 @@
     window.addEventListener('pageshow', (ev) => { if (ev.persisted) { loadHist(); updateCounts(); resetRender(); } });
   }
 
+  // 自动加载到 AUTO 期后改为手动「再看 30 期」，让页脚（订阅 / 支持入口）始终够得着
+  let AUTO = 90;
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('[data-more]')) { AUTO = rendered + PAGE; renderMore(); }
+  });
   const io = new IntersectionObserver((entries) => {
-    if (entries[0].isIntersecting && rendered < LIST.length) renderMore();
+    if (entries[0].isIntersecting && rendered < LIST.length && rendered < AUTO) renderMore();
   }, { rootMargin: '600px' });
 
-  function bindModal(btnId, modalId) {
-    const modal = $(modalId);
-    const btn = $(btnId);
-    if (!modal || !btn) return;
-    btn.addEventListener('click', () => { modal.hidden = false; });
-    modal.querySelector('.modal-close').addEventListener('click', () => { modal.hidden = true; });
-    modal.addEventListener('click', (ev) => { if (ev.target === modal) modal.hidden = true; });
-  }
 
-  /* 复制 RSS 订阅地址（页脚） */
-  document.addEventListener('click', (e) => {
-    const b = e.target.closest('[data-copy-feed]');
-    if (!b) return;
-    const url = location.origin + '/feed.xml';
-    const copied = () => {
-      b.textContent = '已复制';
-      setTimeout(() => { b.textContent = '复制地址'; }, 1600);
-    };
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(url).then(copied).catch(() => { location.href = '/feed.xml'; });
-    } else {
-      location.href = '/feed.xml';
-    }
-  });
 
   if (document.getElementById('grid')) init();
 })();

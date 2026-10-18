@@ -30,35 +30,78 @@ SITE = ROOT.parent / 'site'
 DOMAIN = 'https://lex.qiaomu.ai'
 TODAY = date.today().isoformat()
 
-CSS_V, APP_V, EP_V = 11, 10, 5
+CSS_V, APP_V, EP_V = 12, 11, 6
 
+# 阅读偏好（主题 / 字体 / 字号 / 行距 / 版心宽度 / 段首缩进）在 <head> 内提前应用，首屏不闪
 THEME_SCRIPT = """<script>
 (function () {
-  var d = document.documentElement, t = null, f = null, z = null;
-  try { t = localStorage.getItem('lex-theme'); f = localStorage.getItem('lex-font'); z = localStorage.getItem('lex-size'); } catch (e) {}
-  if (t !== 'light' && t !== 'dark') {
-    t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) ? 'light' : 'dark';
-  }
+  var d = document.documentElement, g = function (k) { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  var t = g('lex-theme'), f = g('lex-font'), z = g('lex-size'), lh = g('lex-lh'), w = g('lex-measure');
+  var BG = { light: '#ffffff', sepia: '#f5eddc', dark: '#141414' };
+  if (!BG[t]) t = (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
   d.setAttribute('data-theme', t);
-  if (f === 'serif') d.classList.add('font-serif');
-  if (z && /^(1[5-9]|2[01])$/.test(z)) d.style.setProperty('--read-size', z + 'px');
+  var FONTS = {
+    sans: 'https://fonts.googleapis.cn/css2?family=Noto+Sans+SC:wght@400;600&display=swap',
+    serif: 'https://fonts.googleapis.cn/css2?family=Noto+Serif+SC:wght@400;600&display=swap',
+    kai: 'https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-webfont@1.7.0/lxgwwenkaiscreen.css',
+    wei: 'https://fonts.googleapis.cn/css2?family=ZCOOL+XiaoWei&display=swap'
+  };
+  window.__lexFonts = FONTS;
+  window.__lexLoadFont = function (k) {
+    if (!FONTS[k] || document.getElementById('lexfont-' + k)) return;
+    var l = document.createElement('link'); l.rel = 'stylesheet'; l.href = FONTS[k]; l.id = 'lexfont-' + k;
+    document.head.appendChild(l);
+  };
+  if (!f) f = 'serif'; // 默认正文用思源宋体，杂志感阅读；可在阅读设置里切换
+  if (FONTS[f]) { d.setAttribute('data-font', f); window.__lexLoadFont(f); }
+  if (z && /^(1[5-9]|2[0-2])$/.test(z)) d.style.setProperty('--read-size', z + 'px');
+  if (lh && /^(1\\.\\d+|2(\\.\\d+)?)$/.test(lh)) d.style.setProperty('--read-lh', lh);
+  if (w && /^\\d{3}$/.test(w)) d.style.setProperty('--measure', w + 'px');
+  if (g('lex-indent') === '1') d.classList.add('indent');
   var meta = document.querySelector('meta[name="theme-color"]');
-  function syncMeta() { if (meta) meta.content = t === 'light' ? '#faf8f4' : '#131211'; }
+  function syncMeta() { if (meta) meta.content = BG[t]; }
   syncMeta();
-  window.__lexTheme = t;
-  window.__lexThemeToggle = function () {
-    t = t === 'light' ? 'dark' : 'light';
-    try { localStorage.setItem('lex-theme', t); } catch (e) {}
+  window.__lexSetTheme = function (n) {
+    if (!BG[n]) return;
+    t = n;
+    try { localStorage.setItem('lex-theme', t); if (t !== 'dark') localStorage.setItem('lex-light', t); } catch (e) {}
     d.classList.add('theme-anim');
     d.setAttribute('data-theme', t);
     syncMeta();
     setTimeout(function () { d.classList.remove('theme-anim'); }, 320);
+    document.dispatchEvent(new CustomEvent('lex-theme', { detail: t }));
   };
+  window.__lexThemeToggle = function () { window.__lexSetTheme(t === 'dark' ? (g('lex-light') || 'light') : 'dark'); };
+  // 全站通用：主题切换 / 打开与关闭弹窗 / 复制 RSS 地址
   document.addEventListener('click', function (e) {
-    if (e.target.closest && e.target.closest('[data-theme-toggle]')) window.__lexThemeToggle();
+    var el = e.target.closest ? e.target : e.target.parentNode;
+    if (el.closest('[data-theme-toggle]')) return window.__lexThemeToggle();
+    var o = el.closest('[data-open]');
+    if (o) { var m = document.getElementById(o.getAttribute('data-open')); if (m) { m.hidden = false; var c = m.querySelector('.modal-close'); if (c) c.focus(); } if (window.umami) window.umami.track('open-' + o.getAttribute('data-open')); return; }
+    var mm = el.closest('.modal');
+    if (mm && (el === mm || el.closest('.modal-close'))) { mm.hidden = true; return; }
+    var cf = el.closest('[data-copy-feed]');
+    if (cf) {
+      var url = location.origin + '/feed.xml', label = cf.textContent;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(function () { cf.textContent = '已复制'; setTimeout(function () { cf.textContent = label; }, 1600); }, function () { location.href = '/feed.xml'; });
+      } else location.href = '/feed.xml';
+    }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') Array.prototype.forEach.call(document.querySelectorAll('.modal'), function (m) { m.hidden = true; });
   });
 })();
 </script>"""
+
+# 全站共用：标题字体（西文 Libre Caslon + 中文思源宋体，Google Fonts 国内镜像按需切片加载）+ favicon
+HEAD_EXTRA = ('<link rel="preconnect" href="https://fonts.googleapis.cn">'
+              '<link rel="preconnect" href="https://fonts.gstatic.cn" crossorigin>'
+              '<link rel="stylesheet" href="https://fonts.googleapis.cn/css2?family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400'
+              '&family=Noto+Serif+SC:wght@500;700&display=swap">\n'
+              '<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 64 64\'%3E'
+              '%3Crect width=\'64\' height=\'64\' fill=\'%23111\'/%3E%3Ctext x=\'32\' y=\'47\' font-size=\'42\' text-anchor=\'middle\' '
+              'fill=\'%23fff\' font-family=\'Georgia,serif\'%3EL%3C/text%3E%3C/svg%3E">')
 
 THEME_BTN = ('<button class="theme-toggle" type="button" data-theme-toggle aria-label="切换浅色 / 深色模式" title="切换浅色 / 深色模式">'
              '<svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/>'
@@ -66,16 +109,75 @@ THEME_BTN = ('<button class="theme-toggle" type="button" data-theme-toggle aria-
              '<svg class="i-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 14.2A8.5 8.5 0 0 1 9.8 3.5a8.5 8.5 0 1 0 10.7 10.7z"/></svg>'
              '</button>')
 
+ICON_SEARCH = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>'
+
+# 内页报头：左返回、中站名（衬线字标）、右搜索 + 主题
+SITE_HEADER = ('<header class="site-header slim">\n  <div class="wrap header-inner">\n'
+               '    <a class="hdr-back" href="/">← 全部单集</a>\n'
+               '    <a class="wordmark" href="/" aria-label="Lex Fridman 播客全访谈 · 首页">Lex Fridman <span>播客全访谈</span></a>\n'
+               f'    <div class="header-actions"><a class="hdr-icon" href="/#search" aria-label="搜索全部单集" title="搜索">{ICON_SEARCH}</a>{THEME_BTN}</div>\n'
+               '  </div>\n</header>')
+
 ICON_PLAY = '<svg class="i-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.6-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>'
 ICON_PAUSE = '<svg class="i-pause" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4.2" height="14" rx="1.2"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.2"/></svg>'
 
-BRAND = ('<a class="brand" href="/" aria-label="Lex Fridman 播客全访谈 · 首页">'
-         '<span class="brand-mark" aria-hidden="true">L</span>'
-         '<span class="brand-text"><span class="brand-name">Lex Fridman 播客全访谈</span>'
-         '<span class="tagline">视频 · 音频 · 双语文稿 · 中文精读</span></span></a>')
-
 FEED_LINK = (f'<link rel="alternate" type="application/rss+xml" '
              f'title="Lex Fridman 播客全访谈 · 中文精读全文" href="{DOMAIN}/feed.xml">')
+
+SITE_FOOTER = """<footer class="site-footer">
+  <div class="wrap">
+    <div class="ft-top">
+      <a class="ft-mark" href="/">Lex Fridman <span>播客全访谈</span></a>
+      <p class="ft-tag">把世界上最好的长访谈，用中文认真读一遍。</p>
+    </div>
+    <div class="ft-cols">
+      <nav class="ft-col" aria-label="浏览"><h2>浏览</h2>
+        <a href="/">全部单集</a><a href="/?f=zh">中文精读</a><a href="/archive/">单集目录</a><a href="/#search">搜索</a></nav>
+      <nav class="ft-col" aria-label="订阅"><h2>订阅</h2>
+        <a href="/feed.xml">RSS 全文订阅</a><button type="button" data-copy-feed>复制 RSS 地址</button>
+        <a href="https://lexfridman.com/podcast/" target="_blank" rel="noopener">官方播客</a></nav>
+      <nav class="ft-col" aria-label="关于"><h2>关于</h2>
+        <a href="/disclaimer/">免责声明</a><a href="https://github.com/joeseesun/lexfridman-cn" target="_blank" rel="noopener">开源代码</a>
+        <a href="/llms.txt">llms.txt</a><a href="https://x.com/vista8" target="_blank" rel="noopener">作者 X</a></nav>
+      <div class="ft-col ft-support"><h2>支持这个项目</h2>
+        <p>一个人独立制作，没有广告，也不收费。如果这里的某篇精读让你有所收获，欢迎请作者喝杯咖啡，让它一直做下去。</p>
+        <div class="ft-actions"><button type="button" class="ft-btn" data-open="rewardModal">打赏支持</button><button type="button" class="ft-btn ghost" data-open="followModal">关注公众号</button></div></div>
+    </div>
+    <div class="ft-bottom">
+      <span>© 2026 向阳乔木 · 非官方粉丝站点，与 Lex Fridman 及节目制作方无隶属关系</span>
+      <span>音视频与原始文稿版权归原权利方所有，本站不托管媒体文件 · 中文精读由 AI 改写，仅供学习参考</span>
+    </div>
+  </div>
+</footer>
+
+<div id="rewardModal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="rewardT">
+  <div class="modal-card">
+    <button type="button" class="modal-close" aria-label="关闭">×</button>
+    <h3 id="rewardT">谢谢你的支持</h3>
+    <p class="modal-sub">每一份打赏都会变成更多认真校过的精读</p>
+    <img src="/assets/qiaomu_reward_qr.png" alt="打赏二维码" width="220" height="220" loading="lazy">
+    <p class="modal-links">微信扫一扫</p>
+  </div>
+</div>
+<div id="followModal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="followT">
+  <div class="modal-card">
+    <button type="button" class="modal-close" aria-label="关闭">×</button>
+    <h3 id="followT">关注向阳乔木</h3>
+    <p class="modal-sub">微信公众号：向阳乔木推荐看</p>
+    <img src="/assets/qiaomu_wechat_public_account_qr.jpg" alt="公众号二维码" width="220" height="220" loading="lazy">
+    <p class="modal-links"><a href="https://github.com/joeseesun/" target="_blank" rel="noopener">GitHub</a> · <a href="https://x.com/vista8" target="_blank" rel="noopener">X</a></p>
+  </div>
+</div>"""
+
+# 文末「致读者」：交代做法与诚意，给出支持入口，不打扰阅读
+COLOPHON = ('<aside class="colophon" aria-label="致读者">'
+            '<div class="colo-k">致读者</div>'
+            '<p>这篇精读来自 lex.qiaomu.ai，一个人独立维护的非营利项目：从官方音频与文稿出发，经转写、AI 改写与逐篇校验，'
+            '尽量把三四个小时的对话，压缩成一篇值得静心读完的中文长文。这里没有广告，也不设付费墙。'
+            '如果它让你有所收获，欢迎请作者喝杯咖啡。</p>'
+            '<div class="colo-actions"><button type="button" class="ft-btn" data-open="rewardModal">打赏支持</button>'
+            '<button type="button" class="ft-btn ghost" data-open="followModal">关注公众号</button>'
+            '<a class="colo-link" href="/feed.xml">RSS 订阅更新</a></div></aside>')
 
 FOOTER_FEED = ('<p class="footer-feed">订阅本站更新：<a href="/feed.xml">RSS 全文订阅</a>'
                '（中文精读全文 + 官方音频） '
@@ -162,7 +264,7 @@ EP_SHELL = """<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="dark light">
-<meta name="theme-color" content="#131211">
+<meta name="theme-color" content="#ffffff">
 <title>{title_tag}</title>
 <meta name="description" content="{desc}">
 <link rel="canonical" href="{url}/">
@@ -172,29 +274,33 @@ EP_SHELL = """<!DOCTYPE html>
 <meta property="og:url" content="{url}/">
 <meta property="og:image" content="{og_img}">
 <meta property="og:site_name" content="Lex Fridman 播客全访谈">
+<meta property="og:locale" content="zh_CN">
+{article_meta}
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{og_title}">
+<meta name="twitter:description" content="{desc}">
+<meta name="twitter:image" content="{og_img}">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
+{md_link}
 <script type="application/ld+json">{ldjson}</script>
 {theme_script}
+{head_extra}
 {feed_link}
 <link rel="stylesheet" href="/style.css?v={css_v}">
 </head>
 <body>
 <a class="skip-link" href="#main">跳到主要内容</a>
-<header class="site-header">
-  <div class="wrap header-inner">
-    {brand}
-    <div class="header-actions"><a class="hdr-link" href="/#search">搜索全部 506 期</a>{theme_btn}</div>
-  </div>
-</header>
+{site_header}
 
-<main class="wrap ep-main" id="main">
-  <nav class="crumbs" aria-label="面包屑"><a href="/">首页</a><span>/</span><span>{crumb}</span></nav>
+<main class="wrap ep-main{main_cls}" id="main">
   <article class="ep">
-    <h1 class="ep-title">{h1}</h1>
-    {orig_line}
-    <div class="ep-meta">
-      {ep_no}<span>{date_disp}</span>{guest_span}{badges}
-    </div>
+    <header class="ep-head">
+      <div class="ep-kicker">{kicker}</div>
+      <h1 class="ep-title">{h1}</h1>
+      {orig_line}
+      {dek}
+      <div class="ep-byline">{byline}</div>
+    </header>
     {media_html}
     <section class="content-tabs">
       {tab_buttons}
@@ -207,28 +313,42 @@ EP_SHELL = """<!DOCTYPE html>
       {prevnext}
     </nav>
   </article>
-  <aside class="ep-toc" aria-label="精读目录" hidden></aside>
+  <aside class="ep-toc" aria-label="精读目录"></aside>
 </main>
 
-<footer class="site-footer">
-  <div class="wrap footer-inner">
-    <div class="footer-note">
-      <p>非官方粉丝站点，与 Lex Fridman 及节目制作方无隶属关系。音频、视频与原始文稿版权归原权利方所有，本站不托管任何媒体文件。中文精读由 AI 改写生成，仅供学习参考，建议收听<a href="{lex}" target="_blank" rel="noopener">原始访谈</a>。详见<a href="/disclaimer/">免责声明</a>。</p>
-      {footer_feed}
-      <p class="footer-links">
-        <a href="https://tuijian.qiaomu.ai/" target="_blank" rel="noopener">乔木推荐</a>
-        <a href="https://github.com/joeseesun/" target="_blank" rel="noopener">GitHub</a>
-        <a href="https://x.com/vista8" target="_blank" rel="noopener">X</a>
-      </p>
-    </div>
-  </div>
-</footer>
+{site_footer}
 
 <script defer src="https://umami.qiaomu.ai/script.js" data-website-id="572fd127-0eb0-4566-8ed6-df70b531ab01" data-domains="lex.qiaomu.ai"></script>
 <script src="/ep.js?v={ep_v}"></script>
 </body>
 </html>
 """
+
+
+def prune(o):
+    """去掉 JSON-LD 里的空值，结构化数据更干净。"""
+    if isinstance(o, dict):
+        return {k: prune(v) for k, v in o.items() if v not in (None, '', [], {})}
+    if isinstance(o, list):
+        return [prune(v) for v in o]
+    return o
+
+
+def html_to_md(h):
+    """精读 HTML（Markdown 渲染结果，结构简单）还原成 Markdown，供 AI 直接读取。"""
+    h = re.sub(r'\s*<h2[^>]*>(.*?)</h2>\s*', lambda m: f'\n\n## {m.group(1)}\n\n', h, flags=re.S)
+    h = re.sub(r'\s*<h3[^>]*>(.*?)</h3>\s*', lambda m: f'\n\n### {m.group(1)}\n\n', h, flags=re.S)
+    h = re.sub(r'\s*<blockquote>(.*?)</blockquote>\s*',
+               lambda m: '\n\n' + '\n'.join('> ' + ln for ln in re.sub(r'</?p>', '\n', m.group(1)).strip().splitlines() if ln.strip()) + '\n\n',
+               h, flags=re.S)
+    h = re.sub(r'\s*<li>(.*?)</li>\s*', lambda m: f'\n- {m.group(1).strip()}', h, flags=re.S)
+    h = re.sub(r'</?(ul|ol)>', '\n', h)
+    h = re.sub(r'<(strong|b)>(.*?)</\1>', r'**\2**', h, flags=re.S)
+    h = re.sub(r'<(em|i)>(.*?)</\1>', r'*\2*', h, flags=re.S)
+    h = re.sub(r'<br\s*/?>', '  \n', h)
+    h = re.sub(r'\s*<p>(.*?)</p>\s*', lambda m: f'\n\n{m.group(1).strip()}\n\n', h, flags=re.S)
+    h = H.unescape(re.sub(r'<[^>]+>', '', h))
+    return re.sub(r'\n{3,}', '\n\n', h).strip() + '\n'
 
 
 def badges_html(tr, zh):
@@ -264,6 +384,14 @@ def build_page(i, eps):
     desc = f'{desc} 含官方音频、视频与英文文稿。'
     og_title = f'{zh_title}｜{title}' if zh_title else title
 
+    strip_no = lambda t: re.sub(r'^#\d+\s*[–—:-]?\s*', '', t or '')
+    zh_raw = zh_html_file.read_text() if has_zh else ''
+    zh_chars = len(re.sub(r'\s+', '', H.unescape(re.sub(r'<[^>]+>', '', zh_raw))))
+    read_min = max(1, round(zh_chars / 450)) if zh_chars else 0
+    zh_mtime = date.fromtimestamp(zh_html_file.stat().st_mtime).isoformat() if has_zh else None
+    zh_sections = re.findall(r'<h2[^>]*>(.*?)</h2>', zh_raw)
+    zh_sections = [H.unescape(re.sub(r'<[^>]+>', '', x)).strip() for x in zh_sections]
+
     ld_media = []
     if audio:
         ld_media.append({"@type": "AudioObject", "contentUrl": audio, "encodingFormat": "audio/mpeg"})
@@ -271,23 +399,50 @@ def build_page(i, eps):
         ld_media.append({"@type": "VideoObject", "embedUrl": f'https://www.youtube.com/embed/{y}'})
     ld = {"@context": "https://schema.org", "@graph": [
         {"@type": "PodcastEpisode", "@id": f'{url}/#episode', "url": f'{url}/',
-         "name": title_tag, "alternativeHeadline": title, "description": desc.rstrip('。 含官方音频、视频与英文文稿。'),
+         "name": title, "alternativeHeadline": zh_title or None, "description": tr_info.get('desc') or None,
          "datePublished": d or None, "episodeNumber": num, "inLanguage": "en",
          "partOfSeries": {"@type": "PodcastSeries", "name": "Lex Fridman Podcast",
                           "url": "https://lexfridman.com/podcast/"},
          "associatedMedia": ld_media},
+        *([{"@type": "Article", "@id": f'{url}/#article', "url": f'{url}/',
+             "headline": (strip_no(zh_title) or title)[:110], "alternativeHeadline": title,
+             "description": tr_info.get('desc') or None, "inLanguage": "zh-CN",
+             "datePublished": zh_mtime, "dateModified": zh_mtime,
+             "wordCount": zh_chars, "timeRequired": f'PT{read_min}M',
+             "image": f'https://i.ytimg.com/vi/{y}/hqdefault.jpg' if y else None,
+             "articleSection": zh_sections[:30] or None,
+             "isBasedOn": {"@id": f'{url}/#episode'}, "about": {"@id": f'{url}/#episode'},
+             "author": {"@type": "Person", "name": "向阳乔木", "url": "https://x.com/vista8"},
+             "publisher": {"@id": f'{DOMAIN}/#org'},
+             "isAccessibleForFree": True,
+             "mainEntityOfPage": f'{url}/'}] if has_zh else []),
+        {"@type": "Organization", "@id": f'{DOMAIN}/#org', "name": "Lex Fridman 播客全访谈", "url": f'{DOMAIN}/',
+         "sameAs": ["https://github.com/joeseesun/lexfridman-cn", "https://x.com/vista8"]},
         {"@type": "BreadcrumbList", "itemListElement": [
             {"@type": "ListItem", "position": 1, "name": "首页", "item": f'{DOMAIN}/'},
             {"@type": "ListItem", "position": 2, "name": title_tag.split(' | ')[0], "item": f'{url}/'}]},
     ]}
     # <script> 内是 raw text，不做 HTML 转义；只防 </script> 逃逸
-    ldjson = json.dumps(ld, ensure_ascii=False).replace('<', '\\u003c')
+    ldjson = json.dumps(prune(ld), ensure_ascii=False).replace('<', '\\u003c')
 
-    h1 = H.escape(zh_title) if zh_title else H.escape(title)
-    orig_line = (f'<p class="ep-title-en">{H.escape(title)}</p>' if zh_title and title != zh_title else '')
-    ep_no = f'<span class="ep-no">第 {num} 期</span><span class="dot">·</span>' if num else ''
-    date_disp = f'<time datetime="{d}">{fmt_date(d)}</time><span class="dot">·</span>' if d else ''
-    guest_span = f'<span>嘉宾 / 主题：{H.escape(guest)}</span><span class="dot">·</span>' if guest else ''
+    h1 = H.escape(strip_no(zh_title) or strip_no(title) or title)
+    orig_line = (f'<p class="ep-title-en">{H.escape(strip_no(title))}</p>' if zh_title and title != zh_title else '')
+    kicker_bits = [f'第 {num} 期' if num else '特别节目']
+    if has_zh:
+        kicker_bits.append('<span class="k-zh">中文精读</span>')
+    kicker = '<span class="k-sep">·</span>'.join(kicker_bits)
+    dek = f'<p class="ep-dek">{H.escape(lede)}</p>' if lede else ''
+    by = []
+    if guest:
+        by.append(f'<span>{H.escape(guest)}</span>')
+    if d:
+        by.append(f'<time datetime="{d}">{fmt_date(d)}</time>')
+    if tr_tag:
+        by.append(f'<span>{ {"ot": "官方文稿", "kg": "存档文稿", "asr": "机器转写文稿"}[tr_tag] }</span>')
+    if read_min:
+        wan = f'{zh_chars / 10000:.1f} 万字' if zh_chars >= 10000 else f'{zh_chars} 字'
+        by.append(f'<span>精读约 {wan} · 阅读 {read_min} 分钟</span>')
+    byline = '<span class="k-sep">·</span>'.join(by)
 
     audio_html = ''
     if audio:
@@ -327,11 +482,9 @@ def build_page(i, eps):
 
     panel_zh = ''
     if has_zh:
-        lede_html = f'<p class="zh-lede">{H.escape(lede)}</p>' if lede else ''
         panel_zh = (f'<div class="tab-panel" id="panel-zh" data-panel="zh">'
                     f'<div class="zh-note">中文精读由 AI 基于原始访谈改写，非官方翻译，可能存在偏差或错误；表述以原音频与官方文稿为准。<a href="/disclaimer/">说明</a></div>'
-                    f'{lede_html}'
-                    f'<div class="zh-article">{zh_html_file.read_text()}</div></div>')
+                    f'<div class="zh-article">{zh_raw}</div>{COLOPHON}</div>')
 
     panel_tr = ''
     if tr_tag:
@@ -382,41 +535,55 @@ def build_page(i, eps):
 
     prevnext = f'{pn_link(prev_e, "← 上一期")}{pn_link(next_e, "下一期 →")}'
 
-    crumb = f'第 {num} 期' if num else H.escape(title[:20])
     page = EP_SHELL.format(
         title_tag=H.escape(title_tag), desc=H.escape(desc), url=url,
         og_title=H.escape(og_title), og_img=f'https://i.ytimg.com/vi/{y}/hqdefault.jpg' if y else f'{DOMAIN}/assets/og-default.png',
         ldjson=ldjson, css_v=CSS_V, ep_v=EP_V,
-        theme_script=THEME_SCRIPT, theme_btn=THEME_BTN,
-        feed_link=FEED_LINK, footer_feed=FOOTER_FEED,
-        crumb=crumb, h1=h1, orig_line=orig_line, ep_no=ep_no, date_disp=date_disp,
-        guest_span=guest_span, badges=badges_html(tr_tag, has_zh),
-        media_html=media_html, tab_buttons=tab_buttons, brand=BRAND,
+        theme_script=THEME_SCRIPT,
+        feed_link=FEED_LINK, site_footer=SITE_FOOTER,
+        h1=h1, orig_line=orig_line, kicker=kicker, dek=dek, byline=byline,
+        main_cls=' has-toc' if has_zh else '',
+        article_meta=(f'<meta property="article:published_time" content="{d}">' if d else '') +
+                     (f'<meta property="article:modified_time" content="{zh_mtime}">' if zh_mtime else ''),
+        md_link=(f'<link rel="alternate" type="text/markdown" title="中文精读 Markdown" href="/ep/{slug}/index.md">' if has_zh else ''), head_extra=HEAD_EXTRA, site_header=SITE_HEADER,
+        media_html=media_html, tab_buttons=tab_buttons,
         panel_zh=panel_zh, panel_tr=panel_tr, no_tr_note=no_tr_note,
         resources=resources, prevnext=prevnext, lex=H.escape(lex),
     )
     dest = SITE / 'ep' / slug / 'index.html'
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(page)
+    md = dest.parent / 'index.md'
+    if has_zh:
+        head = [f'# {strip_no(zh_title) or title}', '',
+                f'> {tr_info.get("desc") or ""}', '',
+                f'- 原标题：{title}', f'- 期数：第 {num} 期' if num else '- 期数：特别节目',
+                f'- 发布日期：{d}' if d else '', f'- 嘉宾 / 主题：{guest}' if guest else '',
+                f'- 网页版：{url}/', f'- 官方页面：{lex}', f'- 精读字数：约 {zh_chars} 字（阅读约 {read_min} 分钟）', '',
+                '> 本文为 lex.qiaomu.ai 基于原始访谈的 AI 改写中文精读，非官方翻译；引用请注明出处并链接网页版。', '']
+        md.write_text('\n'.join(x for x in head if x is not None) + '\n' + html_to_md(zh_raw))
+    elif md.exists():
+        md.unlink()
 
 
 def build_sitemap(eps):
     lines = ['<?xml version="1.0" encoding="UTF-8"?>',
              '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
              f'<url><loc>{DOMAIN}/</loc><lastmod>{TODAY}</lastmod><priority>1.0</priority></url>',
+             f'<url><loc>{DOMAIN}/archive/</loc><lastmod>{TODAY}</lastmod><priority>0.7</priority></url>',
              f'<url><loc>{DOMAIN}/disclaimer/</loc><lastmod>{TODAY}</lastmod><priority>0.3</priority></url>']
     for x in eps:
-        lm = x['d'] or TODAY
+        zf = SITE / 'zh' / f"{x['s']}.html"
+        lm = date.fromtimestamp(zf.stat().st_mtime).isoformat() if x.get('r') and zf.exists() else (x['d'] or TODAY)
         lines.append(f'<url><loc>{DOMAIN}/ep/{x["s"]}/</loc><lastmod>{lm}</lastmod><priority>0.8</priority></url>')
     lines.append('</urlset>')
     (SITE / 'sitemap.xml').write_text('\n'.join(lines))
-    print(f'sitemap.xml: {len(eps) + 2} urls')
+    print(f'sitemap.xml: {len(eps) + 3} urls')
 
 
 DISCLAIMER_BODY = """
-    <nav class="crumbs" aria-label="面包屑"><a href="/">首页</a><span>/</span><span>免责声明</span></nav>
     <article class="ep">
-      <h1 class="ep-title">免责声明与内容说明</h1>
+      <header class="ep-head"><div class="ep-kicker">关于本站</div><h1 class="ep-title">免责声明与内容说明</h1></header>
       <div class="zh-article disclaimer-body">
         <p>本站（lex.qiaomu.ai）是一个非官方的中文导读与检索项目，帮助中文读者发现并理解 Lex Fridman Podcast。本站与 Lex Fridman、节目制作方及任何嘉宾均无隶属或合作关系，站点内容不代表其观点或立场。</p>
 
@@ -455,7 +622,7 @@ def build_disclaimer():
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="dark light">
-<meta name="theme-color" content="#131211">
+<meta name="theme-color" content="#ffffff">
 <title>{H.escape(title)}</title>
 <meta name="description" content="{H.escape(desc)}">
 <link rel="canonical" href="{url}/">
@@ -465,17 +632,13 @@ def build_disclaimer():
 <meta property="og:url" content="{url}/">
 <meta property="og:site_name" content="Lex Fridman 播客全访谈">
 {THEME_SCRIPT}
+{HEAD_EXTRA}
 {FEED_LINK}
 <link rel="stylesheet" href="/style.css?v={CSS_V}">
 </head>
 <body>
 <a class="skip-link" href="#main">跳到主要内容</a>
-<header class="site-header">
-  <div class="wrap header-inner">
-    {BRAND}
-    <div class="header-actions"><a class="hdr-link" href="/#search">搜索全部 506 期</a>{THEME_BTN}</div>
-  </div>
-</header>
+{SITE_HEADER}
 
 <main class="wrap ep-main" id="main">{body}
   <nav class="ep-prevnext">
@@ -483,19 +646,7 @@ def build_disclaimer():
   </nav>
 </main>
 
-<footer class="site-footer">
-  <div class="wrap footer-inner">
-    <div class="footer-note">
-      <p>非官方粉丝站点，与 Lex Fridman 及节目制作方无隶属关系。音频、视频与原始文稿版权归原权利方所有，本站不托管任何媒体文件。中文精读由 AI 改写生成，仅供学习参考。详见<a href="/disclaimer/">免责声明</a>。</p>
-      {FOOTER_FEED}
-      <p class="footer-links">
-        <a href="https://tuijian.qiaomu.ai/" target="_blank" rel="noopener">乔木推荐</a>
-        <a href="https://github.com/joeseesun/" target="_blank" rel="noopener">GitHub</a>
-        <a href="https://x.com/vista8" target="_blank" rel="noopener">X</a>
-      </p>
-    </div>
-  </div>
-</footer>
+{SITE_FOOTER}
 
 <script defer src="https://umami.qiaomu.ai/script.js" data-website-id="572fd127-0eb0-4566-8ed6-df70b531ab01" data-domains="lex.qiaomu.ai"></script>
 <script src="/app.js?v={APP_V}"></script>
@@ -513,11 +664,17 @@ def build_llms(eps):
              f'> Lex Fridman 播客 {len(eps)} 期中文导航站（非官方粉丝站点）：每期一个独立页面，含官方音频直链、'
              f'YouTube 视频、英文文稿（官方 Transcript / 公开数据集存档 / 机器转写）与 AI 改写的中文精读。'
              f'内容版权归 Lex Fridman 及嘉宾所有。', '',
+             '## 使用说明', '',
+             '- 每篇中文精读都有纯 Markdown 版本：在单集网址后加 `index.md`，例如 '
+             f'{DOMAIN}/ep/dhh-2/index.md',
+             f'- 全部单集按年份的目录：{DOMAIN}/archive/',
+             f'- RSS 全文订阅（最新 20 篇精读）：{DOMAIN}/feed.xml',
+             '- 引用时请注明「lex.qiaomu.ai 中文精读（AI 改写，非官方翻译）」并链接对应网页。', '',
              '## 中文精读（AI 深度改写）', '']
     for x in eps:
         if x['s'] in ZH:
             t = x['zh'] or x['t']
-            lines.append(f'- [{t}]({DOMAIN}/ep/{x["s"]}/)：{(trans.get(x["s"], {}) or {}).get("desc", "")}')
+            lines.append(f'- [{t}]({DOMAIN}/ep/{x["s"]}/index.md)：{(trans.get(x["s"], {}) or {}).get("desc", "")}')
     lines += ['', '## 全部单集索引', '']
     for x in eps:
         t = x['zh'] or x['t']
@@ -635,8 +792,147 @@ def clean_stale(eps):
                 print('removed stale', d.name)
 
 
+def _strip_no(t):
+    return re.sub(r'^#\d+\s*[–—:-]?\s*', '', t or '')
+
+
+def ssr_card(x):
+    """与 app.js 的 cardHTML 同构：首屏直接输出，爬虫与无 JS 环境也能读到。"""
+    zh, en = _strip_no(x['zh']) or _strip_no(x['t']), _strip_no(x['t'])
+    num = f'第 {x["n"]} 期' if x['n'] is not None else '特别节目'
+    dt = (x['d'] or '')[:7].replace('-', '.')
+    thumb = (f'<img loading="lazy" decoding="async" src="https://i.ytimg.com/vi/{x["y"]}/mqdefault.jpg" alt="" width="320" height="180">'
+             if x['y'] else '<div class="no-img">LEX</div>')
+    tag = '<span class="zh-tag">中文精读</span>' if x.get('r') else ''
+    en_html = f'<div class="card-title-en">{H.escape(en)}</div>' if x['zh'] else ''
+    return (f'<a class="card" href="/ep/{x["s"]}/"><div class="thumb">{thumb}</div><div class="card-body">'
+            f'<div class="card-kicker"><span class="ep-n">{num}</span><span>{dt}</span>{tag}</div>'
+            f'<div class="card-title">{H.escape(zh)}</div>{en_html}</div></a>')
+
+
+def ssr_hero(x):
+    zh, en = _strip_no(x['zh']) or _strip_no(x['t']), _strip_no(x['t'])
+    d = x['d'] or ''
+    when = f'{d[:4]} 年 {int(d[5:7])} 月' if d else ''
+    by = ' · '.join(H.escape(v) for v in [x.get('guest'), when, f'第 {x["n"]} 期' if x['n'] is not None else ''] if v)
+    img = (f'<img src="https://i.ytimg.com/vi/{x["y"]}/maxresdefault.jpg" alt="" '
+           f'onerror="this.onerror=null;this.src=\'https://i.ytimg.com/vi/{x["y"]}/hqdefault.jpg\'">' if x['y'] else '')
+    desc = f'<p class="hero-desc">{H.escape(x["ds"])}</p>' if x.get('ds') else ''
+    return (f'<a class="hero-media" href="/ep/{x["s"]}/" tabindex="-1" aria-hidden="true">{img}</a>'
+            f'<div class="hero-text"><div class="hero-kicker">最新精读</div>'
+            f'<h2 class="hero-title"><a href="/ep/{x["s"]}/">{H.escape(zh)}</a></h2>'
+            f'<p class="hero-en">{H.escape(en)}</p>{desc}<p class="hero-by">{by}</p>'
+            f'<a class="hero-cta" href="/ep/{x["s"]}/">阅读全文<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>')
+
+
+def sync_index(eps):
+    """首页 index.html 手写维护外壳；共用 <head> 片段、结构化数据、首屏内容（头条 + 前 30 期）与页脚由构建注入。"""
+    f = SITE / 'index.html'
+    html = f.read_text()
+    n_zh = sum(1 for x in eps if x.get('r'))
+    since = min((x['d'] for x in eps if x['d']), default='')[:4]
+    latest = next((x for x in eps if x.get('r')), None)
+    ld = {"@context": "https://schema.org", "@graph": [
+        {"@type": "WebSite", "@id": f'{DOMAIN}/#website', "name": "Lex Fridman 播客全访谈", "url": f'{DOMAIN}/',
+         "description": f'Lex Fridman 播客 {len(eps)} 期中文导航：官方音频、视频、英文文稿与 {n_zh} 篇中文精读',
+         "inLanguage": "zh-CN", "publisher": {"@id": f'{DOMAIN}/#org'},
+         "potentialAction": {"@type": "SearchAction", "target": f'{DOMAIN}/?q={{search_term_string}}',
+                             "query-input": "required name=search_term_string"}},
+        {"@type": "Organization", "@id": f'{DOMAIN}/#org', "name": "Lex Fridman 播客全访谈", "url": f'{DOMAIN}/',
+         "founder": {"@type": "Person", "name": "向阳乔木", "url": "https://x.com/vista8"},
+         "sameAs": ["https://github.com/joeseesun/lexfridman-cn", "https://x.com/vista8"]},
+        {"@type": "ItemList", "name": "最新单集", "itemListOrder": "https://schema.org/ItemListOrderDescending",
+         "numberOfItems": len(eps),
+         "itemListElement": [{"@type": "ListItem", "position": k + 1, "url": f'{DOMAIN}/ep/{x["s"]}/',
+                              "name": _strip_no(x['zh']) or x['t']} for k, x in enumerate(eps[:30])]},
+    ]}
+    blocks = {
+        'head': f'{THEME_SCRIPT}\n{HEAD_EXTRA}',
+        'ld': '<script type="application/ld+json">' + json.dumps(ld, ensure_ascii=False).replace('<', '\\u003c') + '</script>',
+        'sub': f'{len(eps)} 期深度访谈 · {n_zh} 篇中文精读 · {since} 年至今',
+        'hero': ssr_hero(latest) if latest else '',
+        'grid': ''.join(ssr_card(x) for x in eps[:30]),
+        'footer': SITE_FOOTER,
+    }
+    for k, v in blocks.items():
+        html = re.sub(rf'<!--lex:{k}-->.*?<!--/lex:{k}-->', lambda m, k=k, v=v: f'<!--lex:{k}-->{v}<!--/lex:{k}-->', html, flags=re.S)
+    if latest:
+        html = re.sub(r'<section class="hero" id="hero"[^>]*>', f'<section class="hero" id="hero" data-s="{latest["s"]}" aria-label="最新精读">', html)
+    html = re.sub(r'/style\.css\?v=\d+', f'/style.css?v={CSS_V}', html)
+    html = re.sub(r'/app\.js\?v=\d+', f'/app.js?v={APP_V}', html)
+    f.write_text(html)
+
+
+def build_archive(eps):
+    """单集目录：按年份列出全部单集，纯静态，便于爬虫与读者一览全貌。"""
+    years = {}
+    for x in eps:
+        years.setdefault((x['d'] or '0000')[:4], []).append(x)
+    n_zh = sum(1 for x in eps if x.get('r'))
+    nav = ''.join(f'<a href="#y{y}">{y}</a>' for y in sorted(years, reverse=True) if y != '0000')
+    sec = []
+    for y in sorted(years, reverse=True):
+        rows = []
+        for x in years[y]:
+            zh = _strip_no(x['zh']) or _strip_no(x['t'])
+            md = (x['d'] or '')[5:10].replace('-', '.')
+            tag = '<span class="ar-zh">精读</span>' if x.get('r') else ''
+            rows.append(f'<li><a href="/ep/{x["s"]}/"><span class="ar-n">{x["n"] if x["n"] is not None else "—"}</span>'
+                        f'<span class="ar-t"><b>{H.escape(zh)}</b><i>{H.escape(_strip_no(x["t"]))}</i></span>'
+                        f'<span class="ar-d">{md}{tag}</span></a></li>')
+        label = '年份未知' if y == '0000' else f'{y}'
+        sec.append(f'<section class="ar-year" id="y{y}"><h2>{label}<small>{len(years[y])} 期</small></h2><ol>{"".join(rows)}</ol></section>')
+    title = f'单集目录 · 全部 {len(eps)} 期 · Lex Fridman 播客全访谈'
+    desc = f'Lex Fridman 播客全部 {len(eps)} 期单集按年份排列的目录，含 {n_zh} 篇中文精读、官方音频、视频与英文文稿。'
+    url = f'{DOMAIN}/archive'
+    ld = {"@context": "https://schema.org", "@type": "CollectionPage", "name": title, "url": f'{url}/', "inLanguage": "zh-CN",
+          "description": desc, "isPartOf": {"@id": f'{DOMAIN}/#website'}}
+    html = f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#ffffff">
+<title>{H.escape(title)}</title>
+<meta name="description" content="{H.escape(desc)}">
+<link rel="canonical" href="{url}/">
+<meta property="og:title" content="{H.escape(title)}">
+<meta property="og:description" content="{H.escape(desc)}">
+<meta property="og:type" content="website">
+<meta property="og:url" content="{url}/">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:site_name" content="Lex Fridman 播客全访谈">
+<script type="application/ld+json">{json.dumps(ld, ensure_ascii=False)}</script>
+{THEME_SCRIPT}
+{HEAD_EXTRA}
+{FEED_LINK}
+<link rel="stylesheet" href="/style.css?v={CSS_V}">
+</head>
+<body>
+<a class="skip-link" href="#main">跳到主要内容</a>
+{SITE_HEADER}
+<main class="wrap ar-main" id="main">
+  <header class="ep-head"><div class="ep-kicker">单集目录</div><h1 class="ep-title">全部 {len(eps)} 期</h1>
+    <p class="ep-dek">从 2018 年的第一期到最新一期，按年份排列；标有「精读」的单集附中文长文。</p></header>
+  <nav class="ar-nav" aria-label="按年份跳转">{nav}</nav>
+  {''.join(sec)}
+</main>
+{SITE_FOOTER}
+<script defer src="https://umami.qiaomu.ai/script.js" data-website-id="572fd127-0eb0-4566-8ed6-df70b531ab01" data-domains="lex.qiaomu.ai"></script>
+</body>
+</html>
+"""
+    out = SITE / 'archive' / 'index.html'
+    out.parent.mkdir(exist_ok=True)
+    out.write_text(html)
+    print(f'archive page: {len(eps)} eps')
+
+
 def main():
     eps = build_data()
+    sync_index(eps)
+    build_archive(eps)
     for i, x in enumerate(eps):
         build_page(i, eps)
     print(f'ep pages: {len(list((SITE / "ep").glob("*/index.html")))}')

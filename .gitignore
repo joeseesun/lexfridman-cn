@@ -9,6 +9,7 @@ site/ep/
 site/data/*
 !site/data/zh-index.json
 site/disclaimer/
+site/archive/
 site/sitemap.xml
 site/llms.txt
 site/feed.xml
