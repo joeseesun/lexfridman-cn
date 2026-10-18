@@ -30,3 +30,9 @@ __pycache__/
 *.pyc
 .zcode/
 .claude/
+
+# ---- 构建产物：分享卡片 / 特殊页 / 字体与缩略图缓存 ----
+site/og/
+site/404.html
+site/offline.html
+tools/.cache/

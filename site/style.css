@@ -645,6 +645,31 @@ body.mini-on #toTop { bottom: 88px; }
   body.epjs #panel-zh { display: block; }
 }
 
+/* ---------- 404 / 离线页 ---------- */
+.special .ep-head { padding-top: 90px; }
+.special-actions { display: flex; justify-content: center; gap: 12px; margin-top: 30px; flex-wrap: wrap; }
+.special-actions a { text-decoration: none; }
+.more-btn.ghost { border-color: var(--line-strong); color: var(--muted); }
+.special-list { border-top: 1px solid var(--rule); margin: 30px 0 40px; }
+.special-list h2 { font-size: 11.5px; letter-spacing: .16em; color: var(--muted); font-weight: 500; padding: 14px 0 6px; }
+.special-list ol { list-style: none; }
+.special-list a { display: flex; justify-content: space-between; gap: 16px; padding: 13px 0; border-bottom: 1px solid var(--line); text-decoration: none; }
+.special-list b { font-family: var(--font-display); font-size: 16.5px; }
+.special-list i { font-style: normal; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.special-list a:hover b { text-decoration: underline; text-underline-offset: 5px; text-decoration-thickness: 1px; }
+.install-steps { text-align: left; margin: 18px 6px 4px; padding-left: 1.3em; font-size: 14px; line-height: 2; color: var(--text-soft); }
+.install-steps svg { display: inline-block; width: 17px; height: 17px; vertical-align: -3px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+button.colo-link { background: none; border: 0; cursor: pointer; padding: 0; }
+
+/* 缩略图加载完成后淡入，避免灰块闪烁 */
+.thumb img, .cont-thumb img, .hero-media img { opacity: 0; }
+.thumb img.ok, .cont-thumb img.ok, .hero-media img.ok { opacity: 1; transition: opacity .45s ease, transform .6s cubic-bezier(.2,.7,.2,1), filter .45s ease; }
+.no-js .thumb img { opacity: 1; }
+
+/* 站内跳转时的淡入淡出过渡（支持的浏览器） */
+@view-transition { navigation: auto; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: .22s; }
+
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 }

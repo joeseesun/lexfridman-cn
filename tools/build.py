@@ -30,7 +30,7 @@ SITE = ROOT.parent / 'site'
 DOMAIN = 'https://lex.qiaomu.ai'
 TODAY = date.today().isoformat()
 
-CSS_V, APP_V, EP_V = 12, 11, 6
+CSS_V, APP_V, EP_V = 13, 12, 7
 
 # 阅读偏好（主题 / 字体 / 字号 / 行距 / 版心宽度 / 段首缩进）在 <head> 内提前应用，首屏不闪
 THEME_SCRIPT = """<script>
@@ -80,6 +80,13 @@ THEME_SCRIPT = """<script>
     if (o) { var m = document.getElementById(o.getAttribute('data-open')); if (m) { m.hidden = false; var c = m.querySelector('.modal-close'); if (c) c.focus(); } if (window.umami) window.umami.track('open-' + o.getAttribute('data-open')); return; }
     var mm = el.closest('.modal');
     if (mm && (el === mm || el.closest('.modal-close'))) { mm.hidden = true; return; }
+    var sh = el.closest('[data-share]');
+    if (sh) {
+      var data = { title: document.title, url: location.href.split('#')[0] };
+      if (navigator.share) { navigator.share(data).catch(function () {}); }
+      else if (navigator.clipboard) navigator.clipboard.writeText(data.title + ' ' + data.url).then(function () { var t = sh.textContent; sh.textContent = '链接已复制'; setTimeout(function () { sh.textContent = t; }, 1600); });
+      return;
+    }
     var cf = el.closest('[data-copy-feed]');
     if (cf) {
       var url = location.origin + '/feed.xml', label = cf.textContent;
@@ -91,17 +98,44 @@ THEME_SCRIPT = """<script>
   document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') Array.prototype.forEach.call(document.querySelectorAll('.modal'), function (m) { m.hidden = true; });
   });
+  // 图片加载完成再淡入（捕获阶段监听，覆盖后续动态插入的卡片）
+  document.addEventListener('load', function (e) { var t = e.target; if (t.tagName === 'IMG') t.classList.add('ok'); }, true);
+  document.addEventListener('error', function (e) { var t = e.target; if (t.tagName === 'IMG' && !t.getAttribute('onerror')) t.classList.add('ok'); }, true);
+  // 安装为应用：Chrome / Edge 用系统安装框；iOS Safari 给出添加到主屏幕的指引
+  var deferred = null;
+  function showInstall() { Array.prototype.forEach.call(document.querySelectorAll('[data-install]'), function (b) { b.hidden = false; }); }
+  window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferred = e; showInstall(); });
+  var standalone = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
+  if (/iphone|ipad|ipod/i.test(navigator.userAgent) && !standalone) document.addEventListener('DOMContentLoaded', showInstall);
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-install]');
+    if (!b) return;
+    if (deferred) { deferred.prompt(); deferred.userChoice.finally(function () { deferred = null; b.hidden = true; }); }
+    else { var m = document.getElementById('installModal'); if (m) m.hidden = false; }
+  });
+  // PWA：可安装为应用；读过的文章离线可读
+  if ('serviceWorker' in navigator && location.protocol === 'https:') {
+    window.addEventListener('load', function () { navigator.serviceWorker.register('/sw.js').catch(function () {}); });
+  }
 })();
 </script>"""
 
 # 全站共用：标题字体（西文 Libre Caslon + 中文思源宋体，Google Fonts 国内镜像按需切片加载）+ favicon
 HEAD_EXTRA = ('<link rel="preconnect" href="https://fonts.googleapis.cn">'
               '<link rel="preconnect" href="https://fonts.gstatic.cn" crossorigin>'
+              '<link rel="preconnect" href="https://i.ytimg.com">'
               '<link rel="stylesheet" href="https://fonts.googleapis.cn/css2?family=Libre+Caslon+Text:ital,wght@0,400;0,700;1,400'
               '&family=Noto+Serif+SC:wght@500;700&display=swap">\n'
-              '<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 64 64\'%3E'
-              '%3Crect width=\'64\' height=\'64\' fill=\'%23111\'/%3E%3Ctext x=\'32\' y=\'47\' font-size=\'42\' text-anchor=\'middle\' '
-              'fill=\'%23fff\' font-family=\'Georgia,serif\'%3EL%3C/text%3E%3C/svg%3E">')
+              '<link rel="icon" href="/favicon.ico" sizes="32x32">'
+              '<link rel="icon" href="/icon.svg" type="image/svg+xml">'
+              '<link rel="apple-touch-icon" href="/apple-touch-icon.png">'
+              '<link rel="manifest" href="/site.webmanifest">\n'
+              '<meta name="apple-mobile-web-app-title" content="Lex 中文">'
+              '<meta name="apple-mobile-web-app-capable" content="yes">'
+              '<meta name="mobile-web-app-capable" content="yes">'
+              '<meta name="apple-mobile-web-app-status-bar-style" content="default">'
+              '<meta name="format-detection" content="telephone=no">'
+              '<noscript><style>.thumb img,.cont-thumb img,.hero-media img{opacity:1}</style></noscript>')
 
 THEME_BTN = ('<button class="theme-toggle" type="button" data-theme-toggle aria-label="切换浅色 / 深色模式" title="切换浅色 / 深色模式">'
              '<svg class="i-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/>'
@@ -132,7 +166,8 @@ SITE_FOOTER = """<footer class="site-footer">
     </div>
     <div class="ft-cols">
       <nav class="ft-col" aria-label="浏览"><h2>浏览</h2>
-        <a href="/">全部单集</a><a href="/?f=zh">中文精读</a><a href="/archive/">单集目录</a><a href="/#search">搜索</a></nav>
+        <a href="/">全部单集</a><a href="/?f=zh">中文精读</a><a href="/archive/">单集目录</a><a href="/#search">搜索</a>
+        <button type="button" data-install hidden>安装为应用</button></nav>
       <nav class="ft-col" aria-label="订阅"><h2>订阅</h2>
         <a href="/feed.xml">RSS 全文订阅</a><button type="button" data-copy-feed>复制 RSS 地址</button>
         <a href="https://lexfridman.com/podcast/" target="_blank" rel="noopener">官方播客</a></nav>
@@ -159,6 +194,14 @@ SITE_FOOTER = """<footer class="site-footer">
     <p class="modal-links">微信扫一扫</p>
   </div>
 </div>
+<div id="installModal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="installT">
+  <div class="modal-card">
+    <button type="button" class="modal-close" aria-label="关闭">×</button>
+    <h3 id="installT">添加到主屏幕</h3>
+    <p class="modal-sub">像应用一样打开，读过的文章离线也能看</p>
+    <ol class="install-steps"><li>点 Safari 底部的「分享」按钮 <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12M7.5 7.5L12 3l4.5 4.5M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg></li><li>向下滑，选择「添加到主屏幕」</li><li>点右上角「添加」</li></ol>
+  </div>
+</div>
 <div id="followModal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="followT">
   <div class="modal-card">
     <button type="button" class="modal-close" aria-label="关闭">×</button>
@@ -177,6 +220,7 @@ COLOPHON = ('<aside class="colophon" aria-label="致读者">'
             '如果它让你有所收获，欢迎请作者喝杯咖啡。</p>'
             '<div class="colo-actions"><button type="button" class="ft-btn" data-open="rewardModal">打赏支持</button>'
             '<button type="button" class="ft-btn ghost" data-open="followModal">关注公众号</button>'
+            '<button type="button" class="colo-link" data-share>分享这篇</button>'
             '<a class="colo-link" href="/feed.xml">RSS 订阅更新</a></div></aside>')
 
 FOOTER_FEED = ('<p class="footer-feed">订阅本站更新：<a href="/feed.xml">RSS 全文订阅</a>'
@@ -273,6 +317,9 @@ EP_SHELL = """<!DOCTYPE html>
 <meta property="og:type" content="article">
 <meta property="og:url" content="{url}/">
 <meta property="og:image" content="{og_img}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="{og_title}">
 <meta property="og:site_name" content="Lex Fridman 播客全访谈">
 <meta property="og:locale" content="zh_CN">
 {article_meta}
@@ -409,7 +456,7 @@ def build_page(i, eps):
              "description": tr_info.get('desc') or None, "inLanguage": "zh-CN",
              "datePublished": zh_mtime, "dateModified": zh_mtime,
              "wordCount": zh_chars, "timeRequired": f'PT{read_min}M',
-             "image": f'https://i.ytimg.com/vi/{y}/hqdefault.jpg' if y else None,
+             "image": f'{DOMAIN}/og/{slug}.jpg',
              "articleSection": zh_sections[:30] or None,
              "isBasedOn": {"@id": f'{url}/#episode'}, "about": {"@id": f'{url}/#episode'},
              "author": {"@type": "Person", "name": "向阳乔木", "url": "https://x.com/vista8"},
@@ -426,7 +473,7 @@ def build_page(i, eps):
     ldjson = json.dumps(prune(ld), ensure_ascii=False).replace('<', '\\u003c')
 
     h1 = H.escape(strip_no(zh_title) or strip_no(title) or title)
-    orig_line = (f'<p class="ep-title-en">{H.escape(strip_no(title))}</p>' if zh_title and title != zh_title else '')
+    orig_line = (f'<p class="ep-title-en" lang="en">{H.escape(strip_no(title))}</p>' if zh_title and title != zh_title else '')
     kicker_bits = [f'第 {num} 期' if num else '特别节目']
     if has_zh:
         kicker_bits.append('<span class="k-zh">中文精读</span>')
@@ -537,7 +584,7 @@ def build_page(i, eps):
 
     page = EP_SHELL.format(
         title_tag=H.escape(title_tag), desc=H.escape(desc), url=url,
-        og_title=H.escape(og_title), og_img=f'https://i.ytimg.com/vi/{y}/hqdefault.jpg' if y else f'{DOMAIN}/assets/og-default.png',
+        og_title=H.escape(og_title), og_img=f'{DOMAIN}/og/{slug}.jpg',
         ldjson=ldjson, css_v=CSS_V, ep_v=EP_V,
         theme_script=THEME_SCRIPT,
         feed_link=FEED_LINK, site_footer=SITE_FOOTER,
@@ -630,7 +677,9 @@ def build_disclaimer():
 <meta property="og:description" content="{H.escape(desc)}">
 <meta property="og:type" content="article">
 <meta property="og:url" content="{url}/">
+<meta property="og:image" content="{DOMAIN}/og/default.jpg">
 <meta property="og:site_name" content="Lex Fridman 播客全访谈">
+<meta name="twitter:card" content="summary_large_image">
 {THEME_SCRIPT}
 {HEAD_EXTRA}
 {FEED_LINK}
@@ -804,7 +853,7 @@ def ssr_card(x):
     thumb = (f'<img loading="lazy" decoding="async" src="https://i.ytimg.com/vi/{x["y"]}/mqdefault.jpg" alt="" width="320" height="180">'
              if x['y'] else '<div class="no-img">LEX</div>')
     tag = '<span class="zh-tag">中文精读</span>' if x.get('r') else ''
-    en_html = f'<div class="card-title-en">{H.escape(en)}</div>' if x['zh'] else ''
+    en_html = f'<div class="card-title-en" lang="en">{H.escape(en)}</div>' if x['zh'] else ''
     return (f'<a class="card" href="/ep/{x["s"]}/"><div class="thumb">{thumb}</div><div class="card-body">'
             f'<div class="card-kicker"><span class="ep-n">{num}</span><span>{dt}</span>{tag}</div>'
             f'<div class="card-title">{H.escape(zh)}</div>{en_html}</div></a>')
@@ -821,7 +870,7 @@ def ssr_hero(x):
     return (f'<a class="hero-media" href="/ep/{x["s"]}/" tabindex="-1" aria-hidden="true">{img}</a>'
             f'<div class="hero-text"><div class="hero-kicker">最新精读</div>'
             f'<h2 class="hero-title"><a href="/ep/{x["s"]}/">{H.escape(zh)}</a></h2>'
-            f'<p class="hero-en">{H.escape(en)}</p>{desc}<p class="hero-by">{by}</p>'
+            f'<p class="hero-en" lang="en">{H.escape(en)}</p>{desc}<p class="hero-by">{by}</p>'
             f'<a class="hero-cta" href="/ep/{x["s"]}/">阅读全文<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a></div>')
 
 
@@ -878,7 +927,7 @@ def build_archive(eps):
             md = (x['d'] or '')[5:10].replace('-', '.')
             tag = '<span class="ar-zh">精读</span>' if x.get('r') else ''
             rows.append(f'<li><a href="/ep/{x["s"]}/"><span class="ar-n">{x["n"] if x["n"] is not None else "—"}</span>'
-                        f'<span class="ar-t"><b>{H.escape(zh)}</b><i>{H.escape(_strip_no(x["t"]))}</i></span>'
+                        f'<span class="ar-t"><b>{H.escape(zh)}</b><i lang="en">{H.escape(_strip_no(x["t"]))}</i></span>'
                         f'<span class="ar-d">{md}{tag}</span></a></li>')
         label = '年份未知' if y == '0000' else f'{y}'
         sec.append(f'<section class="ar-year" id="y{y}"><h2>{label}<small>{len(years[y])} 期</small></h2><ol>{"".join(rows)}</ol></section>')
@@ -902,7 +951,9 @@ def build_archive(eps):
 <meta property="og:type" content="website">
 <meta property="og:url" content="{url}/">
 <meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="{DOMAIN}/og/default.jpg">
 <meta property="og:site_name" content="Lex Fridman 播客全访谈">
+<meta name="twitter:card" content="summary_large_image">
 <script type="application/ld+json">{json.dumps(ld, ensure_ascii=False)}</script>
 {THEME_SCRIPT}
 {HEAD_EXTRA}
@@ -929,6 +980,45 @@ def build_archive(eps):
     print(f'archive page: {len(eps)} eps')
 
 
+def build_special_pages(eps):
+    """404 与离线页：同一套报头 / 页脚，给出下一步可去的地方。"""
+    picks = [x for x in eps if x.get('r')][:4]
+    links = ''.join(f'<li><a href="/ep/{x["s"]}/"><b>{H.escape(_strip_no(x["zh"]) or x["t"])}</b>'
+                    f'<i>第 {x["n"]} 期</i></a></li>' for x in picks)
+    pages = {
+        '404.html': ('页面不存在', '这一页没有找到', '链接可能写错了，或者那一期换了地址。试试搜索，或者从最新的几篇精读读起。', True),
+        'offline.html': ('离线', '现在没有网络', '读过的文章已为你离线保存，可以返回上一页继续阅读；联网后会自动恢复。', False),
+    }
+    for fn, (t, h1, dek, show) in pages.items():
+        body = f"""<main class="wrap ep-main special" id="main">
+  <header class="ep-head"><div class="ep-kicker">{t}</div><h1 class="ep-title">{h1}</h1><p class="ep-dek">{dek}</p>
+  <p class="special-actions"><a class="more-btn" href="/">回到首页</a><a class="more-btn ghost" href="/#search">搜索单集</a></p></header>
+  {f'<section class="special-list"><h2>最新精读</h2><ol>{links}</ol></section>' if show else ''}
+</main>"""
+        html = f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#ffffff">
+<meta name="robots" content="noindex">
+<title>{t} · Lex Fridman 播客全访谈</title>
+{THEME_SCRIPT}
+{HEAD_EXTRA}
+<link rel="stylesheet" href="/style.css?v={CSS_V}">
+</head>
+<body>
+{SITE_HEADER}
+{body}
+{SITE_FOOTER}
+</body>
+</html>
+"""
+        (SITE / fn).write_text(html)
+    print('404 / offline pages: ok')
+
+
 def main():
     eps = build_data()
     sync_index(eps)
@@ -940,6 +1030,12 @@ def main():
     build_disclaimer()
     build_llms(eps)
     build_feed(eps)
+    build_special_pages(eps)
+    try:
+        import brand
+        brand.build_og(eps, _strip_no)
+    except ImportError as e:  # 没装 Pillow 时跳过分享卡片，不影响站点构建
+        print('og cards skipped:', e)
     clean_stale(eps)
 
 

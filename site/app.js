@@ -138,7 +138,7 @@
     const date = e.d ? e.d.slice(0, 7).replace('-', '.') : '';
     const p = progressOf(e);
     const prog = p > 0.01 ? `<span class="prog" aria-hidden="true"><i style="width:${(p * 100).toFixed(1)}%"></i></span>` : '';
-    const en = e.zh ? `<div class="card-title-en">${hl(e._en, toks)}</div>` : '';
+    const en = e.zh ? `<div class="card-title-en" lang="en">${hl(e._en, toks)}</div>` : '';
     const desc = toks.length && e.ds ? `<div class="card-desc">${hl(e.ds, toks)}</div>` : '';
     return `<a class="card" href="/ep/${e.s}/">
       <div class="thumb">${thumb}${prog}</div>
@@ -239,7 +239,7 @@
       <div class="hero-text">
         <div class="hero-kicker">最新精读</div>
         <h2 class="hero-title"><a href="/ep/${e.s}/">${esc(e._zh)}</a></h2>
-        <p class="hero-en">${esc(e._en)}</p>
+        <p class="hero-en" lang="en">${esc(e._en)}</p>
         ${e.ds ? `<p class="hero-desc">${esc(e.ds)}</p>` : ''}
         <p class="hero-by">${by}</p>
         <a class="hero-cta" href="/ep/${e.s}/">阅读全文<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
