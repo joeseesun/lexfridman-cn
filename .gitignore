@@ -3,12 +3,11 @@
 tools/official/
 # site/transcripts/ = Kaggle 存档与 ASR 文稿
 site/transcripts/
-# site/zh/ = AI 生成的中文精读全文
-site/zh/
 
-# ---- 构建产物(build.py 全量重建) ----
+# ---- 构建产物(build.py 全量重建);zh-index.json 与 site/zh/ 精读全文入库 ----
 site/ep/
-site/data/
+site/data/*
+!site/data/zh-index.json
 site/disclaimer/
 site/sitemap.xml
 site/llms.txt

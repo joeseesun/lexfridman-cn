@@ -4,7 +4,7 @@
 
 纯静态多页站：每期一个独立 URL,含官方音频播放器(断点续听/倍速/时间戳跳转)、点击加载的 YouTube 封面、中英双语标题、英文文稿、AI 中文精读,以及全站 JSON-LD / sitemap / llms.txt / RSS 全文订阅。
 
-> 本仓库只包含**代码与元数据**。受版权保护的内容(官方文稿、存档文稿、ASR 文稿、中文精读全文)不入库,由数据管线在本地自行获取/生成,详见下文。
+> 本仓库包含**代码、元数据与中文精读全文**（456+ 篇，随批处理持续更新）。受版权保护的第三方内容——官方文稿、存档/ASR 文稿——不入库，由数据管线在本地自行获取/生成，详见下文与[免责声明](https://lex.qiaomu.ai/disclaimer/)。
 
 ## 架构
 
@@ -19,7 +19,7 @@ tools/official/*.txt      官方文稿(fetch_official.py 抓取)
 site/transcripts/*.txt    存档/ASR 文稿(不入库)
         │  tools/gen_zh.py --watch   中文精读批产(校验禁句式、带反馈重试)
         ▼
-site/zh/*.html            中文精读片段(不入库)
+site/zh/*.html            中文精读全文（入库，随精读批产更新）
         │  tools/build.py           全量构建:506 个单集页 + sitemap + llms.txt + RSS
         ▼
 site/  ──rsync──►  Nginx 静态主机
@@ -51,9 +51,10 @@ pip install mlx-whisper              # 本地 ASR(Apple Silicon)
 
 ## 版权与免责
 
-- 代码以 [MIT](LICENSE) 授权。
-- Lex Fridman Podcast 的音频、视频、文稿版权归 Lex Fridman 及相应嘉宾与制作方所有;本仓库不包含、不分发任何媒体文件与文稿内容。
-- 中文精读为 AI 辅助生成的二次创作,非官方翻译。站点全文见 [lex.qiaomu.ai/disclaimer/](https://lex.qiaomu.ai/disclaimer/)。
+- 代码以 [MIT](LICENSE) 授权（仅限代码；`site/zh/` 中文精读与元数据不适用 MIT）。
+- 中文精读为本项目 AI 辅助生成的二次创作，站点与 RSS 已全文公开；如需转载请署名并链接对应原文页面。
+- 英文文稿（官方 / Kaggle 存档 / ASR）版权归 Lex Fridman 及相应嘉宾、制作方所有，本仓库不包含、不分发；管线会在本地自行获取或转写。
+- 精读为 AI 生成，非官方翻译，可能存在偏差，请以原始访谈为准。站点全文见 [lex.qiaomu.ai/disclaimer/](https://lex.qiaomu.ai/disclaimer/)。
 
 ## 更新节奏
 
