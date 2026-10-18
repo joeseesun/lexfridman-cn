@@ -28,3 +28,4 @@ lex-transcripts-全清单.md
 __pycache__/
 *.pyc
 .zcode/
+.claude/
