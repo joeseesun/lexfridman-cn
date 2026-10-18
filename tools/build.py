@@ -30,7 +30,7 @@ SITE = ROOT.parent / 'site'
 DOMAIN = 'https://lex.qiaomu.ai'
 TODAY = date.today().isoformat()
 
-CSS_V, APP_V, EP_V = 10, 9, 5
+CSS_V, APP_V, EP_V = 11, 10, 5
 
 THEME_SCRIPT = """<script>
 (function () {
@@ -43,7 +43,7 @@ THEME_SCRIPT = """<script>
   if (f === 'serif') d.classList.add('font-serif');
   if (z && /^(1[5-9]|2[01])$/.test(z)) d.style.setProperty('--read-size', z + 'px');
   var meta = document.querySelector('meta[name="theme-color"]');
-  function syncMeta() { if (meta) meta.content = t === 'light' ? '#f7f7f8' : '#0d0d0f'; }
+  function syncMeta() { if (meta) meta.content = t === 'light' ? '#faf8f4' : '#131211'; }
   syncMeta();
   window.__lexTheme = t;
   window.__lexThemeToggle = function () {
@@ -162,7 +162,7 @@ EP_SHELL = """<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="dark light">
-<meta name="theme-color" content="#0d0d0f">
+<meta name="theme-color" content="#131211">
 <title>{title_tag}</title>
 <meta name="description" content="{desc}">
 <link rel="canonical" href="{url}/">
@@ -455,7 +455,7 @@ def build_disclaimer():
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="dark light">
-<meta name="theme-color" content="#0d0d0f">
+<meta name="theme-color" content="#131211">
 <title>{H.escape(title)}</title>
 <meta name="description" content="{H.escape(desc)}">
 <link rel="canonical" href="{url}/">

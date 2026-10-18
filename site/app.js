@@ -134,11 +134,8 @@
     const thumb = e.y
       ? `<img loading="lazy" decoding="async" src="https://i.ytimg.com/vi/${e.y}/mqdefault.jpg" alt="" width="320" height="180">`
       : '<div class="no-img">LEX</div>';
-    const num = e.n != null ? `#${e.n}` : '特辑';
+    const num = e.n != null ? `No.${e.n}` : '特辑';
     const date = e.d ? e.d.slice(0, 7).replace('-', '.') : '';
-    const badges = [];
-    if (e.r) badges.push('<span class="badge zh">中文精读</span>');
-    if (e.tr) badges.push(`<span class="badge" title="${e.tr === 'asr' ? '机器转写文稿' : '英文文稿'}">文稿</span>`);
     const p = progressOf(e);
     const prog = p > 0.01 ? `<span class="prog" aria-hidden="true"><i style="width:${(p * 100).toFixed(1)}%"></i></span>` : '';
     const en = e.zh ? `<div class="card-title-en">${hl(e._en, toks)}</div>` : '';
@@ -146,12 +143,9 @@
     return `<a class="card" href="/ep/${e.s}/">
       <div class="thumb">${thumb}${prog}</div>
       <div class="card-body">
+        <div class="card-kicker"><span class="ep-n">${num}</span><span>${date}</span>${e.r ? '<span class="zh-tag">精读</span>' : ''}</div>
         <div class="card-title">${hl(e._zh, toks)}</div>
         ${en}${desc}
-        <div class="card-meta">
-          <span><span class="ep-n">${num}</span> · ${date}</span>
-          <span class="badges">${badges.join('')}</span>
-        </div>
       </div>
     </a>`;
   }
@@ -162,6 +156,7 @@
     rendered = 0;
     grid.innerHTML = '';
     syncURL();
+    renderHero();
     renderContinue();
     renderResultLine();
     if (!LIST.length) {
@@ -184,11 +179,11 @@
   function renderResultLine() {
     const el = $('#resultLine');
     const filtered = state.q.trim() || state.f !== 'all';
+    const label = { zh: '中文精读', tr: '有文稿', hist: '看过的' }[state.f];
     if (filtered) {
-      el.innerHTML = `<span>找到 <b>${LIST.length}</b> 期${state.q.trim() ? `与「${esc(state.q.trim())}」相关` : ''}</span>`;
+      el.innerHTML = `<h2>${state.q.trim() ? '搜索结果' : label}<small>${LIST.length} 期${state.q.trim() ? `与「${esc(state.q.trim())}」相关` : ''}</small></h2>`;
     } else {
-      const nZh = DATA.filter((e) => e.r).length;
-      el.innerHTML = `<span>共 <b>${DATA.length}</b> 期 · 中文精读 <b>${nZh}</b> 篇</span>`;
+      el.innerHTML = `<h2>全部单集<small>${state.sort === 'asc' ? '从第 1 期开始' : '最新在前'}</small></h2>`;
     }
   }
 
@@ -207,6 +202,40 @@
     if (c) { input.value = c.dataset.q; setFilter('all'); state.q = c.dataset.q; syncSearchBox(); resetRender(); return; }
     if (e.target.closest('[data-reset]')) { setFilter('all'); resetRender(); }
   });
+
+  /* ---------- 头条：最新一篇中文精读 ---------- */
+  function renderHero() {
+    const box = $('#hero');
+    if (!box) return;
+    const e = DATA.find((x) => x.r);
+    if (!e || state.q.trim() || state.f !== 'all') { box.hidden = true; return; }
+    if (box.dataset.s === e.s) { box.hidden = false; return; }
+    box.dataset.s = e.s;
+    const nZh = DATA.filter((x) => x.r).length;
+    const years = DATA.map((x) => x.d).filter(Boolean).sort();
+    const since = years.length ? years[0].slice(0, 4) : '';
+    const d = e.d ? `${e.d.slice(0, 4)} 年 ${+e.d.slice(5, 7)} 月` : '';
+    const img = e.y
+      ? `<img src="https://i.ytimg.com/vi/${e.y}/maxresdefault.jpg" alt="" onerror="this.onerror=null;this.src='https://i.ytimg.com/vi/${e.y}/hqdefault.jpg'">`
+      : '';
+    box.innerHTML = `<div class="hero-text">
+        <div class="hero-eyebrow"><span class="seal">最新精读</span><span>第 ${e.n != null ? e.n : '—'} 期 · ${d}</span></div>
+        <h2 class="hero-title"><a href="/ep/${e.s}/">${esc(e._zh)}</a></h2>
+        <p class="hero-en">${esc(e._en)}</p>
+        ${e.ds ? `<p class="hero-desc">${esc(e.ds)}</p>` : ''}
+        <div class="hero-actions">
+          <a class="btn-ink" href="/ep/${e.s}/">阅读全文<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg></a>
+          ${e.au ? '<span class="hero-meta">附官方音频 · 视频 · 英文文稿</span>' : ''}
+        </div>
+        <div class="hero-stats">
+          <div><b>${DATA.length}</b><span>期访谈</span></div>
+          <div><b>${nZh}</b><span>篇中文精读</span></div>
+          ${since ? `<div><b>${since}</b><span>年至今</span></div>` : ''}
+        </div>
+      </div>
+      <a class="hero-media" href="/ep/${e.s}/" tabindex="-1" aria-hidden="true">${img}</a>`;
+    box.hidden = false;
+  }
 
   /* ---------- 继续收听 / 阅读 ---------- */
   function loadHist() {

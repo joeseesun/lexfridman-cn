@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="color-scheme" content="dark light">
-<meta name="theme-color" content="#0d0d0f">
+<meta name="theme-color" content="#131211">
 <title>Lex Fridman 播客全访谈 · 506 期视频 / 音频 / 双语文稿 / 中文精读</title>
 <meta name="description" content="Lex Fridman 播客 506 期全收录：每期独立页面附官方音频、YouTube 视频、英文文稿（官方 Transcript / 存档 / 机器转写）以及 AI 生成的中文精读文章。">
 <meta property="og:title" content="Lex Fridman 播客全访谈">
@@ -29,7 +29,7 @@
   if (f === 'serif') d.classList.add('font-serif');
   if (z && /^(1[5-9]|2[01])$/.test(z)) d.style.setProperty('--read-size', z + 'px');
   var meta = document.querySelector('meta[name="theme-color"]');
-  function syncMeta() { if (meta) meta.content = t === 'light' ? '#f7f7f8' : '#0d0d0f'; }
+  function syncMeta() { if (meta) meta.content = t === 'light' ? '#faf8f4' : '#131211'; }
   syncMeta();
   window.__lexTheme = t;
   window.__lexThemeToggle = function () {
@@ -45,7 +45,7 @@
   });
 })();
 </script>
-<link rel="stylesheet" href="style.css?v=10">
+<link rel="stylesheet" href="style.css?v=11">
 </head>
 <body>
 <a class="skip-link" href="#main">跳到主要内容</a>
@@ -77,6 +77,7 @@
 </div>
 
 <main class="wrap" id="main">
+  <section class="hero" id="hero" hidden aria-label="最新精读"></section>
   <section class="continue" id="continue" hidden aria-labelledby="cont-h">
     <div class="sec-h"><h2 id="cont-h">继续</h2><button type="button" id="contClear">清除记录</button></div>
     <div class="continue-row" id="contRow"></div>
@@ -122,6 +123,6 @@
 </div>
 
 <script defer src="https://umami.qiaomu.ai/script.js" data-website-id="572fd127-0eb0-4566-8ed6-df70b531ab01" data-domains="lex.qiaomu.ai"></script>
-<script src="app.js?v=9"></script>
+<script src="app.js?v=10"></script>
 </body>
 </html>
