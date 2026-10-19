@@ -85,6 +85,7 @@
     ['sys', '系统默认', '苹方 / 雅黑', ''],
     ['sans', '思源黑体', 'Noto Sans SC', '"Noto Sans SC"'],
     ['serif', '思源宋体', 'Noto Serif SC', '"Noto Serif SC"'],
+    ['song', '京華老宋', 'KingHwa OldSong', '"KingHwa_OldSong"'],
     ['kai', '霞鹜文楷', 'LXGW WenKai', '"LXGW WenKai Screen"'],
     ['wei', '站酷小薇', 'ZCOOL XiaoWei', '"ZCOOL XiaoWei"'],
   ];
@@ -94,7 +95,6 @@
     lh: css('--read-lh') || '2',
     measure: String(parseInt(css('--measure'), 10) || 680),
     font: html.getAttribute('data-font') || 'sys',
-    indent: html.classList.contains('indent'),
   };
 
   if (tabsRow && article) {
@@ -114,20 +114,22 @@
     aaPop.hidden = true;
     aaPop.setAttribute('role', 'dialog');
     aaPop.setAttribute('aria-label', '阅读设置');
+    // 紧凑布局：背景色块自带名称；字体三列只显示字体本身；字号与行距并排
     aaPop.innerHTML = `
-      <div class="pop-row"><div class="pop-k">背景</div><div class="swatches" data-k="theme">${THEMES.map(([v, n, bg, fg]) =>
-        `<button type="button" data-v="${v}"><i style="background:${bg};color:${fg}">文</i>${n}</button>`).join('')}</div></div>
-      <div class="pop-row"><div class="pop-k">字体</div><div class="font-list" data-k="font">${FONTS.map(([v, n, en, fam]) =>
-        `<button type="button" data-v="${v}"><span${fam ? ` style='font-family:${fam},serif'` : ''}>${n}</span><small>${en}</small></button>`).join('')}</div></div>
-      <div class="pop-row"><div class="pop-k">字号 <b class="sz-v"></b></div>
-        <div class="seg" data-k="size"><button type="button" data-v="-1" aria-label="缩小字号">A−</button><span class="sz" aria-hidden="true">${'文'}</span><button type="button" data-v="1" aria-label="放大字号">A+</button></div></div>
-      <div class="pop-row"><div class="pop-k">行距</div><div class="seg" data-k="lh">${LH.map(([v, n]) => `<button type="button" data-v="${v}">${n}</button>`).join('')}</div></div>
-      <div class="pop-row"><div class="pop-k">版心宽度</div><div class="seg" data-k="measure">${MEASURE.map(([v, n]) => `<button type="button" data-v="${v}">${n}</button>`).join('')}</div></div>
-      <div class="pop-row"><div class="pop-k">段落</div><div class="seg" data-k="indent"><button type="button" data-v="0">段间空行</button><button type="button" data-v="1">首行缩进</button></div></div>
-      <div class="pop-foot"><span>设置会保存在本机</span><button type="button" data-reset>恢复默认</button></div>`;
+      <div class="pop-head"><span>阅读设置</span><button type="button" data-reset>恢复默认</button></div>
+      <div class="swatches" data-k="theme" role="group" aria-label="背景">${THEMES.map(([v, n, bg, fg]) =>
+        `<button type="button" data-v="${v}" style="background:${bg};color:${fg}">${n}</button>`).join('')}</div>
+      <div class="font-list" data-k="font" role="group" aria-label="字体">${FONTS.map(([v, n, en, fam]) =>
+        `<button type="button" data-v="${v}" title="${en}"${fam ? ` style='font-family:${fam},serif'` : ''}>${n}</button>`).join('')}</div>
+      <div class="pop-pair">
+        <div class="seg" data-k="size" role="group" aria-label="字号"><button type="button" data-v="-1" aria-label="缩小字号">A−</button><span class="sz"></span><button type="button" data-v="1" aria-label="放大字号">A+</button></div>
+        <div class="seg seg-lh" data-k="lh" role="group" aria-label="行距">${LH.map(([v, n], i) =>
+          `<button type="button" data-v="${v}" title="行距：${n}" aria-label="行距${n}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="${['M5 8h14M5 12h14M5 16h14', 'M5 7h14M5 12h14M5 17h14', 'M5 5.5h14M5 12h14M5 18.5h14'][i]}"/></svg></button>`).join('')}</div>
+      </div>
+      <div class="seg seg-measure" data-k="measure" role="group" aria-label="版心宽度">${MEASURE.map(([v, n]) => `<button type="button" data-v="${v}">${n}栏</button>`).join('')}</div>`;
     tabsRow.appendChild(aaPop);
     // 宽屏下版心宽度由网格决定；窄屏隐藏这一项
-    if (window.matchMedia('(max-width: 760px)').matches) $('[data-k="measure"]', aaPop).closest('.pop-row').hidden = true;
+    if (window.matchMedia('(max-width: 760px)').matches) $('[data-k="measure"]', aaPop).hidden = true;
 
     progress = document.createElement('div');
     progress.className = 'read-progress';
@@ -139,10 +141,7 @@
       press('font', st.font);
       press('lh', st.lh);
       press('measure', st.measure);
-      press('indent', st.indent ? '1' : '0');
-      $('.sz-v', aaPop).textContent = st.size + ' px';
-      const sz = $('.sz', aaPop);
-      sz.style.fontSize = Math.round(st.size * 0.9) + 'px';
+      $('.sz', aaPop).textContent = st.size;
       const [dn, up] = $$('[data-k="size"] button', aaPop);
       dn.disabled = st.size <= SIZE.min;
       up.disabled = st.size >= SIZE.max;
@@ -151,13 +150,13 @@
       html.style.setProperty('--read-size', st.size + 'px');
       html.style.setProperty('--read-lh', st.lh);
       html.style.setProperty('--measure', st.measure + 'px');
-      html.classList.toggle('indent', st.indent);
+      html.classList.remove('indent');
       if (st.font === 'sys') html.removeAttribute('data-font');
       else { html.setAttribute('data-font', st.font); if (window.__lexLoadFont) window.__lexLoadFont(st.font); }
       ls.set('lex-size', String(st.size));
       ls.set('lex-lh', st.lh);
       ls.set('lex-measure', st.measure);
-      ls.set('lex-indent', st.indent ? '1' : '0');
+      ls.del('lex-indent');
       ls.set('lex-font', st.font);
     };
     syncAa();
@@ -170,7 +169,7 @@
       const anchor = stuck && heads.concat($$('p', article)).find((el) => el.getBoundingClientRect().top > 60);
       const before = anchor ? anchor.getBoundingClientRect().top : 0;
       if (b.hasAttribute('data-reset')) {
-        Object.assign(st, { size: SIZE.def, lh: '2', measure: '680', font: 'serif', indent: false });
+        Object.assign(st, { size: SIZE.def, lh: '2', measure: '680', font: 'serif' });
       } else {
         const k = b.parentNode.dataset.k;
         const v = b.dataset.v;
@@ -179,7 +178,6 @@
         else if (k === 'size') st.size = Math.min(SIZE.max, Math.max(SIZE.min, st.size + Number(v)));
         else if (k === 'lh') st.lh = v;
         else if (k === 'measure') st.measure = v;
-        else if (k === 'indent') st.indent = v === '1';
         if (window.umami && k) window.umami.track('reading-setting', { k, v });
       }
       apply();
@@ -228,9 +226,28 @@
       p.hidden = !open;
       b.setAttribute('aria-expanded', String(open));
       if (open && p === aaPop) FONTS.forEach(([k]) => window.__lexLoadFont && window.__lexLoadFont(k)); // 预览字体名
-      if (open && p === tocPop) { const on = $('a.on', p); if (on) on.scrollIntoView({ block: 'nearest' }); }
+      if (open && p === tocPop) { const on = $('a.on', p); if (on) p.scrollTop = on.offsetTop - p.clientHeight / 3; }
     }));
     document.addEventListener('click', (e) => { if (!e.target.closest('.pop')) closePops(); });
+    // 弹层打开时拦住触摸滑动：弹层内容不可滚、或已滚到头时，手势不再「漏」到正文
+    let ty = 0;
+    document.addEventListener('touchstart', (e) => { ty = e.touches[0].clientY; }, { passive: true });
+    document.addEventListener('touchmove', (e) => {
+      const open = pops.find(([, p]) => !p.hidden);
+      if (!open) return;
+      const box = e.target.closest('.pop');
+      if (!box) { e.preventDefault(); return; }
+      const dy = e.touches[0].clientY - ty;
+      const atTop = box.scrollTop <= 0, atEnd = box.scrollTop + box.clientHeight >= box.scrollHeight - 1;
+      if (box.scrollHeight <= box.clientHeight || (dy > 0 && atTop) || (dy < 0 && atEnd)) e.preventDefault();
+    }, { passive: false });
+    window.addEventListener('wheel', (e) => {
+      const open = pops.find(([, p]) => !p.hidden);
+      if (!open) return;
+      const box = e.target.closest && e.target.closest('.pop');
+      if (box && box.scrollHeight > box.clientHeight) return;  // 可滚动的弹层交给 overscroll-behavior
+      if (box) e.preventDefault();
+    }, { passive: false });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closePops(); });
   }
 

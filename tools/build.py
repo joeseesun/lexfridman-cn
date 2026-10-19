@@ -30,7 +30,7 @@ SITE = ROOT.parent / 'site'
 DOMAIN = 'https://lex.qiaomu.ai'
 TODAY = date.today().isoformat()
 
-CSS_V, APP_V, EP_V = 13, 12, 7
+CSS_V, APP_V, EP_V = 14, 12, 8
 
 # 阅读偏好（主题 / 字体 / 字号 / 行距 / 版心宽度 / 段首缩进）在 <head> 内提前应用，首屏不闪
 THEME_SCRIPT = """<script>
@@ -44,7 +44,8 @@ THEME_SCRIPT = """<script>
     sans: 'https://fonts.googleapis.cn/css2?family=Noto+Sans+SC:wght@400;600&display=swap',
     serif: 'https://fonts.googleapis.cn/css2?family=Noto+Serif+SC:wght@400;600&display=swap',
     kai: 'https://cdn.jsdelivr.net/npm/lxgw-wenkai-screen-webfont@1.7.0/lxgwwenkaiscreen.css',
-    wei: 'https://fonts.googleapis.cn/css2?family=ZCOOL+XiaoWei&display=swap'
+    wei: 'https://fonts.googleapis.cn/css2?family=ZCOOL+XiaoWei&display=swap',
+    song: 'https://cdn.jsdelivr.net/npm/@chinese-fonts/jhlst@3.0.0/dist/%E4%BA%AC%E8%8F%AF%E8%80%81%E5%AE%8B%E4%BD%93v2_002/result.css'
   };
   window.__lexFonts = FONTS;
   window.__lexLoadFont = function (k) {
@@ -57,7 +58,6 @@ THEME_SCRIPT = """<script>
   if (z && /^(1[5-9]|2[0-2])$/.test(z)) d.style.setProperty('--read-size', z + 'px');
   if (lh && /^(1\\.\\d+|2(\\.\\d+)?)$/.test(lh)) d.style.setProperty('--read-lh', lh);
   if (w && /^\\d{3}$/.test(w)) d.style.setProperty('--measure', w + 'px');
-  if (g('lex-indent') === '1') d.classList.add('indent');
   var meta = document.querySelector('meta[name="theme-color"]');
   function syncMeta() { if (meta) meta.content = BG[t]; }
   syncMeta();
