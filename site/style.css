@@ -489,11 +489,14 @@ html.indent .zh-article blockquote p, html.indent .zh-article li p { text-indent
 .ep-prevnext a:hover .pn-t { text-decoration: underline; text-underline-offset: 5px; text-decoration-thickness: 1px; }
 
 /* 悬浮迷你播放条 / 提示条 */
+/* iOS Safari：地址栏随滚动收起/展开时布局视口与可视视口高度不一致，
+   bottom 锚定的浮动元素会被推出屏幕可视区（按钮被“切掉”）；
+   --vv-off 由内联脚本按可视视口实时校准，env() 处理全面屏底部安全区 */
 .mini-player {
-  position: fixed; left: 50%; bottom: 16px; z-index: 90; width: min(560px, calc(100vw - 24px));
+  position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom, 0px) + var(--vv-off, 0px)); z-index: 90; width: min(560px, calc(100vw - 24px));
   background: var(--bg-glass2); -webkit-backdrop-filter: saturate(160%) blur(14px); backdrop-filter: saturate(160%) blur(14px);
   border: 1px solid var(--line); border-radius: 999px; box-shadow: var(--shadow);
-  display: flex; align-items: center; gap: 12px; padding: 8px 10px 8px 8px;
+  display: flex; align-items: center; gap: 12px; padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px)) 8px;
   transform: translate(-50%, 140%); opacity: 0; visibility: hidden;
   transition: transform .28s cubic-bezier(.3,.7,.2,1), opacity .2s ease, visibility .28s;
 }
@@ -510,10 +513,10 @@ html.indent .zh-article blockquote p, html.indent .zh-article li p { text-indent
 .mp-close { background: none; border: 0; color: var(--muted); width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-size: 18px; line-height: 1; }
 .mp-close:hover { color: var(--text); background: var(--card); }
 
-#toTop { position: fixed; right: 20px; bottom: 20px; z-index: 80; width: 40px; height: 40px; border-radius: 50%; background: var(--bg2); color: var(--text); border: 1px solid var(--line); cursor: pointer; opacity: 0; visibility: hidden; transition: opacity .2s ease, transform .2s ease; transform: translateY(6px); display: flex; align-items: center; justify-content: center; }
+#toTop { position: fixed; right: 20px; bottom: calc(20px + env(safe-area-inset-bottom, 0px) + var(--vv-off, 0px)); z-index: 80; width: 40px; height: 40px; border-radius: 50%; background: var(--bg2); color: var(--text); border: 1px solid var(--line); cursor: pointer; opacity: 0; visibility: hidden; transition: opacity .2s ease, transform .2s ease; transform: translateY(6px); display: flex; align-items: center; justify-content: center; }
 #toTop svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 #toTop.show { opacity: 1; visibility: visible; transform: none; }
-body.mini-on #toTop { bottom: 88px; }
+body.mini-on #toTop { bottom: calc(88px + env(safe-area-inset-bottom, 0px) + var(--vv-off, 0px)); }
 #toTop:hover { border-color: var(--line-strong); }
 
 /* ---------- 页脚：墨色通栏 ---------- */
@@ -627,7 +630,7 @@ body.mini-on #toTop { bottom: 88px; }
   .ep-prevnext a[rel='next'] { grid-column: auto; text-align: left; }
   .tool-btn .lbl { display: none; }
   .pop { width: min(340px, calc(100vw - 24px)); }
-  #toTop { right: 14px; bottom: 14px; }
+  #toTop { right: 14px; bottom: calc(14px + env(safe-area-inset-bottom, 0px) + var(--vv-off, 0px)); }
   .ft-top { padding: 40px 0 26px; }
   .ft-cols { grid-template-columns: 1fr 1fr; gap: 28px 20px; }
   .ft-support { grid-column: 1 / -1; }

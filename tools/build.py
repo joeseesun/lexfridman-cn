@@ -30,7 +30,7 @@ SITE = ROOT.parent / 'site'
 DOMAIN = 'https://lex.qiaomu.ai'
 TODAY = date.today().isoformat()
 
-CSS_V, APP_V, EP_V = 14, 12, 8
+CSS_V, APP_V, EP_V = 16, 12, 8
 
 # 阅读偏好（主题 / 字体 / 字号 / 行距 / 版心宽度 / 段首缩进）在 <head> 内提前应用，首屏不闪
 THEME_SCRIPT = """<script>
@@ -72,6 +72,24 @@ THEME_SCRIPT = """<script>
     document.dispatchEvent(new CustomEvent('lex-theme', { detail: t }));
   };
   window.__lexThemeToggle = function () { window.__lexSetTheme(t === 'dark' ? (g('lex-light') || 'light') : 'dark'); };
+  // iOS Safari：上下滚动时地址栏收起/展开，布局视口与可视视口高度出现偏差，
+  // bottom 锚定的浮动元素（迷你播放条 / 回到顶部 / 续读提示）会被推出屏幕，按钮被“切掉”。
+  // 用可视视口实时校准：把浮动元素拉回可视区内（桌面与安卓上差值为 0，无副作用）。
+  (function () {
+    var vv = window.visualViewport;
+    if (!vv) return;
+    var queued = false;
+    function apply() {
+      queued = false;
+      var off = Math.round(window.innerHeight - vv.offsetTop - vv.height);
+      d.style.setProperty('--vv-off', Math.max(0, off) + 'px');
+    }
+    function onVV() { if (!queued) { queued = true; requestAnimationFrame(apply); } }
+    vv.addEventListener('resize', onVV);
+    vv.addEventListener('scroll', onVV);
+    window.addEventListener('orientationchange', onVV);
+    apply();
+  })();
   // 全站通用：主题切换 / 打开与关闭弹窗 / 复制 RSS 地址
   document.addEventListener('click', function (e) {
     var el = e.target.closest ? e.target : e.target.parentNode;
