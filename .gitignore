@@ -36,3 +36,7 @@ site/og/
 site/404.html
 site/offline.html
 tools/.cache/
+
+# ---- 多语言镜像树（gen_i18n.py 生成，rsync 直上服务器） ----
+site/tw/
+site/en/

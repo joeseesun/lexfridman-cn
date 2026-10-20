@@ -30,7 +30,7 @@ SITE = ROOT.parent / 'site'
 DOMAIN = 'https://lex.qiaomu.ai'
 TODAY = date.today().isoformat()
 
-CSS_V, APP_V, EP_V = 16, 12, 8
+CSS_V, APP_V, EP_V = 17, 12, 8
 
 # 阅读偏好（主题 / 字体 / 字号 / 行距 / 版心宽度 / 段首缩进）在 <head> 内提前应用，首屏不闪
 THEME_SCRIPT = """<script>

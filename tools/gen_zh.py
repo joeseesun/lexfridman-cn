@@ -375,6 +375,9 @@ def gen_one(slug, ep, trans, model=None):
 def deploy():
     subprocess.run([sys.executable, 'tools/build.py'], cwd=ROOT, check=True,
                    capture_output=True, text=True)
+    # 多语言镜像树（/tw 繁体 + /en 英文界面）：build 之后、rsync 之前生成
+    subprocess.run([sys.executable, 'tools/gen_i18n.py'], cwd=ROOT, check=True,
+                   capture_output=True, text=True)
     subprocess.run(['rsync', '-az', '--delete', '--exclude', '.well-known',
                     'site/', 'qiaomu-hostinger:/www/wwwroot/lex.qiaomu.ai/'],
                    cwd=ROOT, check=True, capture_output=True, text=True)

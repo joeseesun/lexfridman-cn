@@ -678,3 +678,15 @@ button.colo-link { background: none; border: 0; cursor: pointer; padding: 0; }
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 }
+
+/* 语言切换器（简 / 繁 / EN）：首页在报头右侧，内页在操作区左端 */
+.lang-switch { display: inline-flex; align-items: center; gap: 2px; font-size: 12.5px; line-height: 1; }
+.lang-switch a { color: var(--muted); text-decoration: none; padding: 5px 8px; border-radius: 999px; letter-spacing: .02em; white-space: nowrap; }
+.lang-switch a:hover { color: var(--text); background: var(--card); }
+.lang-switch a[aria-current="true"] { color: var(--text); background: var(--card); }
+.header-actions .lang-switch { margin-right: 8px; }
+@media (max-width: 599px) { .mast-actions .lang-switch a { padding: 5px 6px; } }
+
+/* 单集页英文版顶部的中文精读入口 */
+.ep-also { font-size: 13.5px; color: var(--muted); margin-top: 10px; }
+.ep-also a { color: var(--text); }
