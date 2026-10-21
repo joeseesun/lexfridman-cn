@@ -109,7 +109,8 @@ _api_key = None
 def api_key():
     global _api_key
     if _api_key is None:
-        _api_key = subprocess.run(
+        # 服务器上从环境变量读（/etc/qiaomu-podcasts.env）；本机从 macOS 钥匙串读
+        _api_key = os.environ.get('MAGPIE_API_KEY') or subprocess.run(
             ['security', 'find-generic-password', '-s', 'qiaomu-llm', '-a', 'magpie', '-w'],
             capture_output=True, text=True, check=True).stdout.strip()
     return _api_key
@@ -379,7 +380,7 @@ def deploy():
     subprocess.run([sys.executable, 'tools/gen_i18n.py'], cwd=ROOT, check=True,
                    capture_output=True, text=True)
     subprocess.run(['rsync', '-az', '--delete', '--exclude', '.well-known',
-                    'site/', 'qiaomu-hostinger:/www/wwwroot/lex.qiaomu.ai/'],
+                    'site/', os.environ.get('LEX_DEPLOY_TARGET', 'qiaomu-hostinger:/www/wwwroot/lex.qiaomu.ai/')],
                    cwd=ROOT, check=True, capture_output=True, text=True)
 
 

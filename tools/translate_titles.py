@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """批量翻译期标题：Magpie 订阅路由（trae→opencode→workbuddy 轮换，官方 deepseek 已退役）。
 输出 tools/translations.json（slug → {zh, guest, desc}），增量保存，断点续跑。"""
-import json, re, subprocess, sys, time, urllib.error, urllib.request
+import json, os, re, subprocess, sys, time, urllib.error, urllib.request
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -10,8 +10,9 @@ BATCH = 16
 
 API = 'https://magpie.qiaomu.ai/v1/chat/completions'
 MODELS = ['trae-cn/deepseek-v4.1-flash', 'opencode-go/deepseek-v4.1-flash', 'workbuddy/deepseek-v4.1-flash']
-KEY = subprocess.run(['security', 'find-generic-password', '-s', 'qiaomu-llm', '-a', 'magpie', '-w'],
-                     capture_output=True, text=True).stdout.strip()
+KEY = os.environ.get('MAGPIE_API_KEY') or subprocess.run(  # 服务器读环境变量，本机读钥匙串
+    ['security', 'find-generic-password', '-s', 'qiaomu-llm', '-a', 'magpie', '-w'],
+    capture_output=True, text=True).stdout.strip()
 assert KEY, 'keychain key not found'
 
 master = json.load(open(ROOT / 'lex-master.json'))

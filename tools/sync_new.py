@@ -13,7 +13,9 @@
 
 用法：python3 tools/sync_new.py [--dry-run] [--no-asr]
 """
+import fcntl
 import json
+import os
 import re
 import html as HH
 import subprocess
@@ -34,6 +36,13 @@ UA = ('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 '
 EP_RE = re.compile(r'^#(\d+)\s*[–—-]\s*(.*)$', re.S)
 YT_RE = re.compile(r'youtube\.com/(?:embed/|watch\?v=)([A-Za-z0-9_-]{6,14})|youtu\.be/([A-Za-z0-9_-]{6,14})')
 DRY = '--dry-run' in sys.argv
+PUSH = '--no-push' not in sys.argv
+WHISPER = os.environ.get('MLX_WHISPER', '/opt/homebrew/bin/mlx_whisper')  # launchd 下 PATH 很精简，用绝对路径
+ASR_ENGINE = os.environ.get('ASR_ENGINE', 'mlx')       # 服务器上为 doubao（豆包录音文件识别）
+DEPLOY_TARGET = os.environ.get('LEX_DEPLOY_TARGET', 'qiaomu-hostinger:/www/wwwroot/lex.qiaomu.ai/')
+QMREADER = os.environ.get('QMREADER_URL', '')          # 设置后，部署完通知 QMReader 刷新对应源
+QMREADER_SOURCE = 'lex-zh'
+OPS = Path(os.environ.get('PODCAST_OPS', '/Users/joe/Documents/ChatGPT/podcast-ops'))
 DO_ASR = '--no-asr' not in sys.argv
 
 changes = []
@@ -127,13 +136,26 @@ def insert_sorted(master, entry):
 
 
 def asr_transcript(e, audio):
-    """官方音频 → 本地转写 → site/transcripts/{slug}.txt（与既有 ASR 文稿同格式）。"""
+    """官方音频 → 转写 → site/transcripts/{slug}.txt（与既有 ASR 文稿同格式）。
+    ASR_ENGINE=doubao 时把音频 URL 交给豆包（服务器上用）；否则下载后本地 mlx_whisper。"""
     TMP.mkdir(parents=True, exist_ok=True)
+    label = f"#{e['num']} – {e['title'].split('–', 1)[-1].strip()}" if e['num'] else e['title']
+    out = SITE / 'transcripts' / f"{e['slug']}.txt"
+    if ASR_ENGINE == 'doubao':
+        sys.path.insert(0, str(OPS))
+        from doubao_asr import transcribe
+        log('  豆包录音文件识别中 …')
+        text = transcribe(audio, lang='en-US')
+        out.write_text(f'Lex Fridman Podcast {label}\n'
+                       'Machine transcription by Doubao ASR (Volcengine, cloud). May contain recognition errors.\n\n'
+                       + text + '\n')
+        log(f"  已转写 {out.name}（{len(text)} 字符）")
+        return
     mp3 = TMP / f"{e['slug']}.mp3"
     log(f"  下载音频 {audio.rsplit('/', 1)[-1]} …")
     mp3.write_bytes(get(audio, timeout=600))
     outdir = TMP / 'asr'
-    subprocess.run(['mlx_whisper', str(mp3), '--model', 'mlx-community/whisper-large-v3-turbo',
+    subprocess.run([WHISPER, str(mp3), '--model', 'mlx-community/whisper-large-v3-turbo',
                     '--language', 'en', '--output-dir', str(outdir), '--output-format', 'txt'],
                    check=True, capture_output=True)
     raw = (outdir / f"{e['slug']}.txt").read_text()
@@ -144,10 +166,8 @@ def asr_transcript(e, audio):
         if seg:
             lines.append(seg)
     text = re.sub(r'\s+([,.!?;:])', r'\1', ' '.join(lines))
-    label = f"#{e['num']} – {e['title'].split('–', 1)[-1].strip()}" if e['num'] else e['title']
     hdr = (f'Lex Fridman Podcast {label}\n'
            'Machine transcription by Whisper large-v3-turbo (MLX, local). May contain recognition errors.\n\n')
-    out = SITE / 'transcripts' / f"{e['slug']}.txt"
     out.write_text(hdr + text + '\n')
     mp3.unlink(missing_ok=True)
     log(f"  已转写 {out.name}（{len(text)} 字符）")
@@ -169,13 +189,49 @@ def ensure_watch():
 def deploy():
     subprocess.run([sys.executable, 'tools/build.py'], cwd=REPO, check=True, capture_output=True)
     subprocess.run(['rsync', '-az', '--delete', '--exclude', '.well-known',
-                    'site/', 'qiaomu-hostinger:/www/wwwroot/lex.qiaomu.ai/'],
+                    'site/', DEPLOY_TARGET],
                    cwd=REPO, check=True, capture_output=True)
     log('  build + rsync 完成')
+    notify_qmreader()
+
+
+def notify_qmreader():
+    if not QMREADER:
+        return
+    try:
+        req = urllib.request.Request(f'{QMREADER}/api/sources/{QMREADER_SOURCE}/refresh-hint', data=b'{}', method='POST',
+                                     headers={'Content-Type': 'application/json'})
+        log('  已通知 QMReader 刷新：' + urllib.request.urlopen(req, timeout=20).read().decode()[:120])
+    except Exception as ex:
+        log(f'  通知 QMReader 失败：{ex}')
+
+
+def git_commit_push(reason):
+    """把已落盘的精读与元数据提交并推送 main（精读由后台 gen_zh 异步生成，所以每次运行开头先收上一轮的成果）。
+    推送失败只记日志，不算整体失败。"""
+    if DRY or not PUSH:
+        return
+    git = lambda *a: subprocess.run(['git', *a], cwd=REPO, capture_output=True, text=True)  # noqa: E731
+    git('add', 'site/zh', 'site/data/zh-index.json', 'tools/lex-master.json', 'tools/feed_audio.json',
+        'tools/translations.json', 'tools/og-faces.json')
+    if git('diff', '--cached', '--quiet').returncode == 0:
+        return
+    n = len([x for x in git('diff', '--cached', '--name-only').stdout.split() if x.startswith('site/zh/')])
+    git('commit', '-m', f'每日追新 {datetime.now():%Y-%m-%d}：{reason}' + (f'（新增 / 更新精读 {n} 篇）' if n else ''))
+    r = git('push', '-q', 'origin', 'HEAD')
+    log('GitHub 推送' + ('完成' if r.returncode == 0 else f'失败：{r.stderr.strip()[-200:]}'))
 
 
 def main():
+    lock = open('/tmp/lexsite-sync.lock', 'w')
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        log('上一次追新仍在运行，本次跳过')
+        return
+    TMP.mkdir(parents=True, exist_ok=True)
     log(f'== sync_new start {datetime.now().isoformat(timespec="seconds")} ==')
+    git_commit_push('收录上一轮精读')
     eps, ots = parse_rss()
     log(f'RSS: {len(eps)} 期目, {len(ots)} 个官方文稿条目')
     master = load_master()
@@ -249,6 +305,7 @@ def main():
     if changes and not DRY:
         deploy()
 
+    git_commit_push('; '.join(changes) or '元数据')
     log(f'== sync done: {"; ".join(changes) if changes else "no new episodes"} ==')
 
 
