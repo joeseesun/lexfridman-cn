@@ -18,6 +18,8 @@ import re
 import html as HH
 import subprocess
 import sys
+import time
+import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
@@ -41,10 +43,19 @@ def log(msg):
     print(msg, flush=True)
 
 
-def get(url, timeout=30):
+def get(url, timeout=30, retries=3):
     req = urllib.request.Request(url, headers={'User-Agent': UA})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return r.read()
+    for i in range(retries):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as r:
+                return r.read()
+        except urllib.error.HTTPError:
+            raise
+        except Exception as e:
+            if i == retries - 1:
+                raise
+            log(f'  网络重试 {i + 1}/{retries - 1}: {url[:70]} ({type(e).__name__})')
+            time.sleep(2 * (i + 1))
 
 
 def write_json(path, data):
