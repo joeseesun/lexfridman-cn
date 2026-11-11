@@ -428,7 +428,8 @@
   "74": "https://media.blubrry.com/takeituneasy/content.blubrry.com/takeituneasy/lex_ai_michael_i_jordan.mp3",
   "73": "https://media.blubrry.com/takeituneasy/content.blubrry.com/takeituneasy/lex_ai_andrew_ng.mp3",
   "72": "https://media.blubrry.com/takeituneasy/content.blubrry.com/takeituneasy/lex_ai_scott_aaronson.mp3",
-  "503": "https://media.blubrry.com/takeituneasy/ins.blubrry.com/takeituneasy/lex_ai_math_ai_crisis.mp3"
+  "503": "https://media.blubrry.com/takeituneasy/ins.blubrry.com/takeituneasy/lex_ai_math_ai_crisis.mp3",
+  "504": "https://media.blubrry.com/takeituneasy/ins.blubrry.com/takeituneasy/lex_ai_preston_stewart_michael_kofman.mp3"
  },
  "by_slug": {
   "ama1": "https://media.blubrry.com/takeituneasy/content.blubrry.com/takeituneasy/lex_ai_ama1.mp3",
@@ -505,6 +506,7 @@
   "steven-pinker": "https://media.blubrry.com/takeituneasy/content.blubrry.com/takeituneasy/mit_ai_steven_pinker.mp3",
   "christof-koch": "https://media.blubrry.com/takeituneasy/content.blubrry.com/takeituneasy/mit_ai_christof_koch.mp3",
   "max-tegmark": "https://media.blubrry.com/takeituneasy/content.blubrry.com/takeituneasy/mit_ai_max_tegmark.mp3",
-  "math-ai-crisis": "https://media.blubrry.com/takeituneasy/ins.blubrry.com/takeituneasy/lex_ai_math_ai_crisis.mp3"
+  "math-ai-crisis": "https://media.blubrry.com/takeituneasy/ins.blubrry.com/takeituneasy/lex_ai_math_ai_crisis.mp3",
+  "ukraine-war-preston-stewart-michael-kofman": "https://media.blubrry.com/takeituneasy/ins.blubrry.com/takeituneasy/lex_ai_preston_stewart_michael_kofman.mp3"
  }
 }
