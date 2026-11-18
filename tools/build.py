@@ -308,7 +308,7 @@ def build_data():
             'y': e.get('ytId'),
             'zh': trans.get(e['slug'], {}).get('zh'),
             'guest': trans.get(e['slug'], {}).get('guest'),
-            'tr': tag, 'au': bool(audio_for(e)),
+            'tr': tag, 'au': bool(audio_for(e)), 'a': audio_for(e) or None,
             'r': 1 if e['slug'] in ZH and (SITE / 'zh' / f"{e['slug']}.html").exists() else 0,
             'ds': trans.get(e['slug'], {}).get('desc'),
         })
